@@ -61,7 +61,6 @@ public class LoginDialog extends JDialog implements Runnable {
     private void onOK() {
         boolean ok = controller.enter(tfLogin.getText(), tfPassword.getPassword());
         if (ok) {
-            System.out.println("Вы вошли!");
             this.dispose();
         } else {
             lError.setVisible(true);

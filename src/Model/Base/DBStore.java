@@ -21,7 +21,6 @@ import java.util.Set;
 public class DBStore implements DataStore {
     final private static Logger LOGGER = LoggerFactory.getLogger(DataStore.class);
     Connection connection;
-
     {
         connection = DBHelper.INSTANCE.getConnection();
     }
