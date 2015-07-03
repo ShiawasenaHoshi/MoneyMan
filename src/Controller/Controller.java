@@ -3,6 +3,7 @@ package Controller;
 import Model.Base.DBStore;
 import Model.Base.DataStore;
 import Model.DataTypes.User;
+import Model.Tools.HashMaker;
 import View.LoginDialog;
 
 /**
@@ -28,11 +29,19 @@ public class Controller {
         }
     }
 
-    public boolean checkLoginPassword(String login, char[] password) {
+    public boolean enter(String login, char[] password) {
+        if (userExist(login)) {
+            return dataStore.getUser(login).checkPassword(password);
+        } else return false;
+    }
+
+    public boolean userExist(String login) {
         User user = dataStore.getUser(login);
-        if (user == null) {
-            return false;
-        }
-        return user.checkPassword(password);
+        return user != null;
+    }
+
+    public void createNewUser(String login, char[] password) {
+        User newUser = new User(login, HashMaker.getHash(password));
+        dataStore.addUser(newUser);
     }
 }

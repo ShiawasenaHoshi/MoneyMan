@@ -34,6 +34,16 @@ public class LoginDialog extends JDialog implements Runnable {
             }
         });
 
+        lRegistration.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                NewUserDialog newUserDialog = new NewUserDialog(controller);
+                newUserDialog.pack();
+                newUserDialog.setName("Регистрация");
+                newUserDialog.setVisible(true);
+            }
+        });
+
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         addWindowListener(new WindowAdapter() {
             public void windowClosing(WindowEvent e) {
@@ -49,7 +59,7 @@ public class LoginDialog extends JDialog implements Runnable {
     }
 
     private void onOK() {
-        boolean ok = controller.checkLoginPassword(tfLogin.getText(), tfPassword.getPassword());
+        boolean ok = controller.enter(tfLogin.getText(), tfPassword.getPassword());
         if (ok) {
             System.out.println("Вы вошли!");
             this.dispose();

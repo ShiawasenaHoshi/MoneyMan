@@ -1,7 +1,11 @@
 package View;
 
+import Controller.Controller;
+
 import javax.swing.*;
 import java.awt.event.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class NewUserDialog extends JDialog {
     private JPanel contentPane;
@@ -10,12 +14,14 @@ public class NewUserDialog extends JDialog {
     private JTextField tfLogin;
     private JPasswordField tfPassword;
     private JLabel lError;
+    private Controller controller;
 
-    public NewUserDialog() {
+    public NewUserDialog(Controller controller) {
+        this.controller = controller;
         setContentPane(contentPane);
         setModal(true);
         getRootPane().setDefaultButton(buttonOK);
-
+//        lError.setVisible(false);
         buttonOK.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 onOK();
@@ -28,7 +34,6 @@ public class NewUserDialog extends JDialog {
             }
         });
 
-// call onCancel() when cross is clicked
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         addWindowListener(new WindowAdapter() {
             public void windowClosing(WindowEvent e) {
@@ -36,7 +41,6 @@ public class NewUserDialog extends JDialog {
             }
         });
 
-// call onCancel() on ESCAPE
         contentPane.registerKeyboardAction(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 onCancel();
@@ -44,20 +48,45 @@ public class NewUserDialog extends JDialog {
         }, KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
     }
 
-    public static void main(String[] args) {
-        NewUserDialog dialog = new NewUserDialog();
-        dialog.pack();
-        dialog.setVisible(true);
-        System.exit(0);
-    }
 
     private void onOK() {
-// add your code here
+        if (!loginIsOk(tfLogin.getText())) {
+            lError.setText("Логин должен состоять из 3-20 латинских символов и букв, первый символ обязательно буква");
+//            lError.setVisible(true);
+            return;
+        }
+        if (!passwordIsOk(tfPassword.getText())) {
+            lError.setText("Пароль должен состоять из латинских букв (строчных и прописных) и цифр");
+//            lError.setVisible(true);
+            return;
+        }
+        if (controller.userExist(tfLogin.getText())) {
+            lError.setText("Такой пользователь уже существует");
+//            lError.setVisible(true);
+            return;
+        }
+        controller.createNewUser(tfLogin.getText(), tfPassword.getPassword());
+        JOptionPane.showConfirmDialog(null, String.format("Пользователь %s создан!", tfLogin.getText()),
+                "Пользователь создан", JOptionPane.OK_OPTION);
         dispose();
     }
 
     private void onCancel() {
-// add your code here if necessary
         dispose();
+    }
+
+    private boolean loginIsOk(String name) {
+        Pattern p = Pattern.compile("^[a-zA-Z][a-zA-Z0-9-_\\.]{2,20}$");
+        Matcher m = p.matcher(name);
+        return m.matches();
+    }
+
+    //fixme не угодно работать с паролем в стринге
+    private boolean passwordIsOk(String password) {
+//todo такой паттерн слишком сложный. Или нет?
+//        Pattern p = Pattern.compile("^(?=.*\\d)(?=.*[a-z])(?=.*[A-Z])(?!.*\\s).*$");
+        Pattern p = Pattern.compile("^[a-zA-Z][a-zA-Z0-9-_\\.]{2,20}$");
+        Matcher m = p.matcher(password);
+        return m.matches();
     }
 }
