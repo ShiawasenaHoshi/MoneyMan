@@ -54,6 +54,11 @@ public class Account extends DataType {
         return id;
     }
 
+    public void refreshRecords(Collection<? extends Record> collection) {
+        records = new HashSet<>();
+        addRecords(collection);
+    }
+
     @Override
     public String toString() {
         return "Model.DataTypes.Account{" +

@@ -3,6 +3,8 @@ package Controller;
 import Model.Base.DBStore;
 import Model.Base.DataStore;
 import Model.DataTypes.Account;
+import Model.DataTypes.Category;
+import Model.DataTypes.Record;
 import Model.DataTypes.User;
 import Model.Tools.HashMaker;
 import View.LoginDialog;
@@ -10,18 +12,30 @@ import View.MainForm;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
+
 /**
  * Created by vasily on 09.06.15.
  */
 public class Controller {
     final private static Logger LOGGER = LoggerFactory.getLogger(DataStore.class);
+    static SimpleDateFormat simpleDateFormat;
+    public User loggedUser = null;
     DataStore dataStore;
     volatile LoginDialog loginDialog = null;
     volatile MainForm mainForm = null;
-    User loggedUser = null;
+    private List<Record> mainTable;
+    private int selectedAccountIndex = 0;
+    private List<Account> accounts;
+    private List<Category> categories;
 
     public Controller() {
         dataStore = new DBStore();
+        simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
     }
 
     public static void main(String[] args) {
@@ -35,6 +49,10 @@ public class Controller {
             Thread loginDialogThread = new Thread(loginDialog);
             loginDialogThread.start();
         }
+    }
+
+    public List<Record> getMainTable() {
+        return mainTable;
     }
 
     public boolean enter(String login, char[] password) {
@@ -75,5 +93,88 @@ public class Controller {
         for (Account account : loggedUser.getAccounts()) {
             account.addRecords(dataStore.getRecords(account));
         }
+        accounts = new ArrayList<>();
+        for (Account account : loggedUser.getAccounts()) {
+            accounts.add(account);
+        }
+        categories = new ArrayList<>();
+        for (Category category : dataStore.getCategories()) {
+            categories.add(category);
+        }
+        mainTable = new ArrayList<>();
+        if (accounts.size() > 0) {
+            fillTableByAccount(accounts.get(0));
+        }
+    }
+
+    public void fillTableByAccount(Account account) {
+        mainTable.clear();
+        for (Record record : account.getRecords()) {
+            mainTable.add(record);
+        }
+    }
+
+    public void fillTableByCategory(Category category) {
+        mainTable.clear();
+        for (Account account : loggedUser.getAccounts()) {
+            for (Record record : account.getRecords()) {
+                if (record.getCategory().equals(category)) {
+                    mainTable.add(record);
+                }
+            }
+        }
+    }
+//    public String[][] getTableData(){
+//        String[][] result = new String[mainTable.size()][COLUMNS_COUNT];
+//        for (int i = 0; i < result.length; i++) {
+//            String[] row = result[i];
+//            Record record = mainTable.get(i);
+//            row[0] = String.valueOf(record.getId());
+//            row[1] = simpleDateFormat.format(record.getCreateTime());
+//            row[2] = String.valueOf(record.getAmount());
+//            row[3] = record.getCategory().getName();
+//            row[4] = record.getDescription();
+//        }
+//        return result;
+//    }
+
+    public String[] getAccounts() {
+        Set<Account> accounts = loggedUser.getAccounts();
+        String[] result = new String[accounts.size()];
+        int i = 0;
+        for (Account account : loggedUser.getAccounts()) {
+            long balance = getBalance(account.getRecords());
+            result[i] = String.format("%s   %s", account.getID(), (balance > 0) ? "+" + balance : balance);
+            ++i;
+        }
+        return result;
+    }
+
+    private long getSpend(Collection<Record> records) {
+        long result = 0;
+        for (Record record : records) {
+            if (record.getAmount() < 0) {
+                result += record.getAmount();
+            }
+        }
+        return result;
+    }
+
+    private long getIncome(Collection<Record> records) {
+        long result = 0;
+        for (Record record : records) {
+            if (record.getAmount() > 0) {
+                result += record.getAmount();
+            }
+        }
+        return result;
+    }
+
+    private long getBalance(Collection<Record> records) {
+        long result = 0;
+        for (Record record : records) {
+            result += record.getAmount();
+        }
+        return result;
     }
 }
