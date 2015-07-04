@@ -10,6 +10,7 @@ import java.util.List;
  * Created by vasily on 04.07.15.
  */
 public class MoneyManTableModel extends AbstractTableModel {
+    //fixme дата отображается неправильно
     public static final int COLUMNS_COUNT = 5;
     public static final int ID_COLUMN = 0;
     public static final int CREATE_TIME_COLUMN = 1;
@@ -50,5 +51,9 @@ public class MoneyManTableModel extends AbstractTableModel {
                 return records.get(rowIndex).getDescription();
         }
         return null;
+    }
+
+    public Record getRecordAt(int index) {
+        return records.get(index);
     }
 }

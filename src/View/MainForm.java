@@ -2,15 +2,20 @@ package View;
 
 import Controller.Controller;
 import Controller.MoneyManTableModel;
-import Model.DataTypes.Category;
 import Model.DataTypes.Record;
 
 import javax.swing.*;
-import javax.swing.table.AbstractTableModel;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
+import javax.swing.text.DateFormatter;
+import javax.swing.text.DefaultFormatterFactory;
+import javax.swing.text.MaskFormatter;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.util.Collection;
-import java.util.Iterator;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 
 /**
  * Created by vasily on 03.07.15.
@@ -18,7 +23,7 @@ import java.util.Iterator;
 public class MainForm extends JFrame implements Runnable {
     private JPanel rootPanel;
     private JTable tRecords;
-    private JTabbedPane SortByTabs;
+    private JTabbedPane tpSortByTabs;
     private JList lCategories;
     private JList lAccounts;
     private JSlider sDateFrom;
@@ -29,7 +34,7 @@ public class MainForm extends JFrame implements Runnable {
     private JFormattedTextField ftfAmountFrom;
     private JFormattedTextField ftfAmountTo;
     private JSlider sAmountTo;
-    private JFormattedTextField ftfRecordDate;
+    private JFormattedTextField ftfRecordDateTime;
     private JFormattedTextField ftfRecordAmount;
     private JComboBox cbRecordCategory;
     private JTextArea taRecordDescription;
@@ -46,18 +51,13 @@ public class MainForm extends JFrame implements Runnable {
     private JPanel ControlPanel;
     private Controller controller;
     private String[] columnNames = {"ID", "Дата", "Сумма", "Категория", "Описание"};
+    private MoneyManTableModel tableModel;
+    private SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
 
     public MainForm(Controller controller) {
         super("Главная форма");
         this.controller = controller;
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        addWindowListener(new WindowAdapter() {
-            public void windowClosing(WindowEvent e) {
-                onExit();
-            }
-        });
-        firstRun();
-
+        init();
     }
 
     private void onExit() {
@@ -71,15 +71,35 @@ public class MainForm extends JFrame implements Runnable {
         this.setVisible(true);
     }
 
-    private void firstRun() {
+    private void init() {
         refreshAccountList();
-        tRecords.setModel(new MoneyManTableModel(controller));
-//        tRecords = new JTable(new MoneyManTableModel(controller));
-//        Iterator<Account> accountIterator = accounts.iterator();
-//        if (accountIterator.hasNext()) {
-//            Account account = accountIterator.next();
-//            refreshTable(account.getRecords());
-//        }
+        tableModel = new MoneyManTableModel(controller);
+        tRecords.setModel(tableModel);
+        tRecords.addMouseListener(new TableMouseListener());
+        tpSortByTabs.addChangeListener(new SortByTabsChangeListener());
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        addWindowListener(new WindowAdapter() {
+            public void windowClosing(WindowEvent e) {
+                onExit();
+            }
+        });
+
+        ftfRecordDateTime.setFormatterFactory(
+                new DefaultFormatterFactory(
+                        new DateFormatter(
+                                dateFormat)));
+        //про создание масок для formattedTextField http://stackoverflow.com/questions/4252257/jformattedtextfield-with-maskformatter
+        try {
+            MaskFormatter dateTimeMask = new MaskFormatter("####-##-## ##:##:##.###");
+            dateTimeMask.install(ftfRecordDateTime);
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        if (tableModel.getRowCount() > 0) {
+            tRecords.setRowSelectionInterval(0, 0);
+            refreshRecordEdit(tableModel.getRecordAt(0));
+        }
+
     }
 
     private void refreshAccountList() {
@@ -91,10 +111,11 @@ public class MainForm extends JFrame implements Runnable {
         }
     }
 
-    private void refreshCategoryList(Collection<Category> collection) {
-        Iterator<Category> categoryIterator = collection.iterator();
-        if (categoryIterator.hasNext()) {
-
+    private void refreshCategoryList() {
+        String[] categories = controller.getCategories();
+        //todo категорий как минимум одна, поскольку есть NO_CATEGORY
+        if (categories.length > 0) {
+            lCategories.setListData(categories);
         } else {
             return;
         }
@@ -102,12 +123,18 @@ public class MainForm extends JFrame implements Runnable {
 
     //О том как редактировать отдельные ячейки http://stackoverflow.com/questions/5918727/updating-data-in-a-jtable
     // туториал по табличкам http://docs.oracle.com/javase/tutorial/uiswing/components/table.html
+    // выделение нескольких http://stackoverflow.com/questions/14416188/jtable-how-to-get-selected-cells
     private void refreshTable() {
         tRecords.invalidate();
     }
 
+    //todo можно добавить множественное редактирование
     private void refreshRecordEdit(Record record) {
-
+        lRecordID.setText("Запись №" + record.getId());
+        ftfRecordDateTime.setValue(record.getCreateTime());
+        ftfRecordAmount.setValue(record.getAmount());
+        //fixme здесь должно быть обновление категории
+        taRecordDescription.setText(record.getDescription());
     }
 
     private void writeRecord() {
@@ -118,23 +145,41 @@ public class MainForm extends JFrame implements Runnable {
 
     }
 
+    class TableMouseListener extends MouseAdapter {
+        @Override
+        public void mouseClicked(MouseEvent e) {
+            int row = tRecords.rowAtPoint(e.getPoint());
+            refreshRecordEdit(tableModel.getRecordAt(row));
+        }
+    }
 
+    class SortByTabsChangeListener implements ChangeListener {
+        static final int ACCOUNT_SORT_TAB = 0;
+        static final int CATEGORY_SORT_TAB = 1;
+        static final int DATETIME_SORT_TAB = 2;
+        static final int AMOUNT_SORT_TAB = 3;
+
+        @Override
+        public void stateChanged(ChangeEvent e) {
+            switch (tpSortByTabs.getSelectedIndex()) {
+                case ACCOUNT_SORT_TAB: {
+                    refreshAccountList();
+                    break;
+                }
+                case CATEGORY_SORT_TAB: {
+                    refreshCategoryList();
+                    break;
+                }
+                case DATETIME_SORT_TAB: {
+                    break;
+                }
+                case AMOUNT_SORT_TAB: {
+                    break;
+                }
+            }
+        }
+
+    }
 }
 
-class MyModel extends AbstractTableModel {
 
-    @Override
-    public int getRowCount() {
-        return 0;
-    }
-
-    @Override
-    public int getColumnCount() {
-        return 0;
-    }
-
-    @Override
-    public Object getValueAt(int rowIndex, int columnIndex) {
-        return null;
-    }
-}

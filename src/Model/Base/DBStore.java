@@ -130,7 +130,7 @@ public class DBStore implements DataStore {
         try {
             preparedStatement = connection.prepareStatement("SELECT * FROM CATEGORIES;");
             resultSet = preparedStatement.executeQuery();
-            if (resultSet.next()) {
+            while (resultSet.next()) {
                 categories.add(new Category(resultSet.getString("NAME"), resultSet.getString("DESCR")));
             }
         } catch (SQLException e) {
@@ -138,6 +138,7 @@ public class DBStore implements DataStore {
         } finally {
             DBHelper.INSTANCE.closeResources(resultSet, preparedStatement);
         }
+        System.out.println(categories.size());
         return categories;
     }
 

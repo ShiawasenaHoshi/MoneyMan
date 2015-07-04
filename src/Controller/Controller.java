@@ -150,6 +150,18 @@ public class Controller {
         return result;
     }
 
+    public String[] getCategories() {
+        Set<Category> categories = dataStore.getCategories();
+        String[] result = new String[categories.size()];
+        //fixme категории возвращаются не все
+        int i = 0;
+        for (Category category : categories) {
+            result[i] = category.getName();
+            ++i;
+        }
+        return result;
+    }
+
     private long getSpend(Collection<Record> records) {
         long result = 0;
         for (Record record : records) {
