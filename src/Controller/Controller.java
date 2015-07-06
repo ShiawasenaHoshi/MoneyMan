@@ -107,11 +107,23 @@ public class Controller {
         }
     }
 
+    public void fillTableByAccount(int accountID) {
+        fillTableByAccount((Account) dataStore.getDataByID(Account.class, String.valueOf(accountID)));
+    }
+
     public void fillTableByAccount(Account account) {
         mainTable.clear();
-        for (Record record : account.getRecords()) {
-            mainTable.add(record);
+        for (Account account1 : loggedUser.getAccounts()) {
+            if (account1.equals(account)) {
+                for (Record record : account1.getRecords()) {
+                    mainTable.add(record);
+                }
+            }
         }
+    }
+
+    public void fillTableByCategory(String categoryName) {
+        fillTableByCategory(dataStore.getCategory(categoryName));
     }
 
     public void fillTableByCategory(Category category) {
@@ -153,7 +165,6 @@ public class Controller {
     public String[] getCategories() {
         Set<Category> categories = dataStore.getCategories();
         String[] result = new String[categories.size()];
-        //fixme категории возвращаются не все
         int i = 0;
         for (Category category : categories) {
             result[i] = category.getName();

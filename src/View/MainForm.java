@@ -7,6 +7,8 @@ import Model.DataTypes.Record;
 import javax.swing.*;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
 import javax.swing.text.DateFormatter;
 import javax.swing.text.DefaultFormatterFactory;
 import javax.swing.text.MaskFormatter;
@@ -74,9 +76,12 @@ public class MainForm extends JFrame implements Runnable {
     private void init() {
         refreshAccountList();
         tableModel = new MoneyManTableModel(controller);
+        //fixme не хватает tableheader
         tRecords.setModel(tableModel);
         tRecords.addMouseListener(new TableMouseListener());
         tpSortByTabs.addChangeListener(new SortByTabsChangeListener());
+        lCategories.addListSelectionListener(new LCategoriesSelectionListener());
+        lAccounts.addListSelectionListener(new LAccountsSelectionListener());
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         addWindowListener(new WindowAdapter() {
             public void windowClosing(WindowEvent e) {
@@ -125,7 +130,7 @@ public class MainForm extends JFrame implements Runnable {
     // туториал по табличкам http://docs.oracle.com/javase/tutorial/uiswing/components/table.html
     // выделение нескольких http://stackoverflow.com/questions/14416188/jtable-how-to-get-selected-cells
     private void refreshTable() {
-        tRecords.invalidate();
+        tableModel.fireTableDataChanged();
     }
 
     //todo можно добавить множественное редактирование
@@ -143,6 +148,24 @@ public class MainForm extends JFrame implements Runnable {
 
     private void createNewRecord() {
 
+    }
+
+    class LCategoriesSelectionListener implements ListSelectionListener {
+        @Override
+        public void valueChanged(ListSelectionEvent e) {
+            controller.fillTableByCategory(lCategories.getSelectedValue().toString());
+            refreshTable();
+        }
+    }
+
+    class LAccountsSelectionListener implements ListSelectionListener {
+        @Override
+        public void valueChanged(ListSelectionEvent e) {
+            //todo там где можно обойтись int пользоваться string не гуд
+            String selected = lAccounts.getSelectedValue().toString();
+            controller.fillTableByAccount(Integer.parseInt(selected.substring(0, selected.indexOf(" "))));
+            refreshTable();
+        }
     }
 
     class TableMouseListener extends MouseAdapter {

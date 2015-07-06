@@ -3,7 +3,6 @@ package Controller;
 import Model.DataTypes.Record;
 
 import javax.swing.table.AbstractTableModel;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -22,8 +21,8 @@ public class MoneyManTableModel extends AbstractTableModel {
 
     public MoneyManTableModel(Controller controller) {
         this.controller = controller;
-        records = new ArrayList<>();
-        records.addAll(controller.getMainTable());
+//        records = new ArrayList<>();
+        records = controller.getMainTable();
     }
 
     @Override
@@ -56,4 +55,5 @@ public class MoneyManTableModel extends AbstractTableModel {
     public Record getRecordAt(int index) {
         return records.get(index);
     }
+
 }
