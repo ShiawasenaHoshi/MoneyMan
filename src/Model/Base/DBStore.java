@@ -21,6 +21,7 @@ import java.util.Set;
 public class DBStore implements DataStore {
     final private static Logger LOGGER = LoggerFactory.getLogger(DataStore.class);
     Connection connection;
+
     {
         connection = DBHelper.INSTANCE.getConnection();
     }
@@ -218,6 +219,9 @@ public class DBStore implements DataStore {
             LOGGER.error("Model.DataTypes.Record не может быть равен null");
             return null;
         }
+        if (record.getId() != Record.NO_ID) {
+            return setRecord(account, record);
+        }
         PreparedStatement preparedStatement = null;
         ResultSet resultSet = null;
         try {
@@ -240,6 +244,34 @@ public class DBStore implements DataStore {
             DBHelper.INSTANCE.closeResources(resultSet, preparedStatement);
         }
         return recordWithID;
+    }
+
+    private Record setRecord(Account account, Record record) {
+        Record returnRecord = null;
+        PreparedStatement preparedStatement = null;
+        ResultSet resultSet = null;
+        try {
+            preparedStatement = connection.prepareStatement("UPDATE records " +
+                    "SET amount = ?, descr = ?, create_time = ?, category_name = ?, account_id = ? " +
+                    "WHERE id = ?;");
+            preparedStatement.setLong(1, record.getAmount());
+            preparedStatement.setString(2, record.getDescription());
+            preparedStatement.setLong(3, record.getCreateTime());
+            preparedStatement.setString(4, record.getCategory().getName());
+            preparedStatement.setInt(5, account.getID());
+            preparedStatement.setInt(6, record.getId());
+            preparedStatement.executeUpdate();
+            resultSet = preparedStatement.getGeneratedKeys();
+            resultSet.next();
+            returnRecord = new Record(resultSet.getInt(1), record.getAmount(), record.getDescription(), record.getCategory(), record.getCreateTime());
+        } catch (SQLException e) {
+            LOGGER.error("Запись {} в счет {} добавить неполучилось: {}",
+                    record.toString(), account.getDescription(), e.getMessage());
+//            e.printStackTrace();
+        } finally {
+            DBHelper.INSTANCE.closeResources(resultSet, preparedStatement);
+        }
+        return returnRecord;
     }
 
     @Override
