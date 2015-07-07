@@ -30,6 +30,7 @@ public class Controller {
     private List<Record> mainTable;
     private List<Account> accounts;
     private List<Category> categories;
+    private SortParams lastSortParams;
 
     public Controller() {
         dataStore = new DBStore();
@@ -92,25 +93,7 @@ public class Controller {
         }
         mainTable = new ArrayList<>();
         if (accounts.size() > 0) {
-            fillTableByAccount(0);
-        }
-    }
-
-    public void fillTableByAccount(int accountIndex) {
-        mainTable.clear();
-        Account account = accounts.get(accountIndex);
-        mainTable.addAll(dataStore.getRecords(account));
-    }
-
-    public void fillTableByCategory(int categoryIndex) {
-        mainTable.clear();
-        Category category = categories.get(categoryIndex);
-        for (Account account : accounts) {
-            for (Record record : dataStore.getRecords(account)) {
-                if (record.getCategory().equals(category)) {
-                    mainTable.add(record);
-                }
-            }
+            fillTableBy(new SortParams().setAccountIndex(0));
         }
     }
 
@@ -124,6 +107,47 @@ public class Controller {
         }
         return result;
     }
+
+    public void fillTableBy() {
+        fillTableBy(lastSortParams);
+    }
+
+    public void fillTableBy(SortParams sortParams) {
+        //fixme нужна проверка на существовании категории и аккаунта, что в params
+        lastSortParams = sortParams;
+        mainTable.clear();
+        if (sortParams.getAccountIndex() >= 0) {
+            mainTable.addAll(dataStore.getRecords(accounts.get(sortParams.getAccountIndex())));
+        } else {
+            for (Account account : dataStore.getAccounts(loggedUser)) {
+                for (Record record : dataStore.getRecords(account)) {
+                    mainTable.add(record);
+                }
+            }
+        }
+        if (sortParams.getCategoryIndex() >= 0) {
+            for (int i = mainTable.size() - 1; i >= 0; i--) {
+                if (!mainTable.get(i).getCategory().equals(categories.get(sortParams.getCategoryIndex()))) {
+                    mainTable.remove(i);
+                }
+            }
+        }
+        if (sortParams.isAmountRestricted()) {
+            for (int i = mainTable.size() - 1; i >= 0; i--) {
+                if (mainTable.get(i).getAmount() < sortParams.getAmountFrom() && mainTable.get(i).getAmount() > sortParams.getAmountTo()) {
+                    mainTable.remove(i);
+                }
+            }
+        }
+        if (sortParams.isDateTimeRestricted()) {
+            for (int i = mainTable.size() - 1; i >= 0; i--) {
+                if (mainTable.get(i).getCreateTime() < sortParams.getDateTimeFrom() && mainTable.get(i).getAmount() > sortParams.getDateTimeTo()) {
+                    mainTable.remove(i);
+                }
+            }
+        }
+    }
+
 
     public String[] getCategories() {
         String[] result = new String[categories.size()];
@@ -186,23 +210,27 @@ public class Controller {
     }
 
     public void removeRecord(int id) {
-        for (Account account : loggedUser.getAccounts()) {
-            for (Record record : account.getRecords()) {
+        for (Account account : dataStore.getAccounts(loggedUser)) {
+            for (Record record : dataStore.getRecords(account)) {
                 if (record.getId() == id) {
-                    account.getRecords().remove(record);
-                    return;
+                    if (dataStore.removeRecord(account, record) != null) {
+                        return;
+                    } else {
+                        try {
+                            throw new Exception("Запись не удалена");
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
                 }
             }
         }
     }
 
-//    public void addRecord(int accountID, Record record) {
-//
-//    }
-
     public void saveNewRecord(int id, long amount, String description, int categoryIndex, long createTime, int accountIndex) {
         Record record = new Record(id, amount, description, categories.get(categoryIndex), createTime);
         dataStore.addRecord(accounts.get(accountIndex), record);
+        fillTableBy(lastSortParams);
     }
 
     public void saveEditedRecord(int id, long amount, String description, int categoryIndex, long createTime) {
@@ -227,6 +255,7 @@ public class Controller {
             throw new NullPointerException("Нет записи с таким ID в базе");
         } else {
             dataStore.addRecord(accountTo, record);
+            fillTableBy(lastSortParams);
         }
     }
 
