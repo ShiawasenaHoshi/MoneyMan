@@ -31,6 +31,8 @@ public class Controller {
     private List<Account> accounts;
     private List<Category> categories;
     private SortParams lastSortParams;
+    private volatile long minAmount = 0;
+    private volatile long maxAmount = 0;
 
     public Controller() {
         dataStore = new DBStore();
@@ -95,6 +97,7 @@ public class Controller {
         if (accounts.size() > 0) {
             fillTableBy(new SortParams().setAccountIndex(0));
         }
+        calculateMinMaxAmounts();
     }
 
     public String[] getAccounts() {
@@ -134,7 +137,7 @@ public class Controller {
         }
         if (sortParams.isAmountRestricted()) {
             for (int i = mainTable.size() - 1; i >= 0; i--) {
-                if (mainTable.get(i).getAmount() < sortParams.getAmountFrom() && mainTable.get(i).getAmount() > sortParams.getAmountTo()) {
+                if (mainTable.get(i).getAmount() < sortParams.getAmountFrom() || mainTable.get(i).getAmount() > sortParams.getAmountTo()) {
                     mainTable.remove(i);
                 }
             }
@@ -147,7 +150,6 @@ public class Controller {
             }
         }
     }
-
 
     public String[] getCategories() {
         String[] result = new String[categories.size()];
@@ -214,6 +216,7 @@ public class Controller {
             for (Record record : dataStore.getRecords(account)) {
                 if (record.getId() == id) {
                     if (dataStore.removeRecord(account, record) != null) {
+                        calculateMinMaxAmountsAfterChanges(record);
                         return;
                     } else {
                         try {
@@ -230,6 +233,7 @@ public class Controller {
     public void saveNewRecord(int id, long amount, String description, int categoryIndex, long createTime, int accountIndex) {
         Record record = new Record(id, amount, description, categories.get(categoryIndex), createTime);
         dataStore.addRecord(accounts.get(accountIndex), record);
+        calculateMinMaxAmountsAfterChanges(record);
         fillTableBy(lastSortParams);
     }
 
@@ -255,6 +259,7 @@ public class Controller {
             throw new NullPointerException("Нет записи с таким ID в базе");
         } else {
             dataStore.addRecord(accountTo, record);
+            calculateMinMaxAmountsAfterChanges(record);
             fillTableBy(lastSortParams);
         }
     }
@@ -264,11 +269,39 @@ public class Controller {
         return false;
     }
 
+    public void calculateMinMaxAmountsAfterChanges(Record editedRecord) {
+        if (editedRecord.getAmount() >= maxAmount || editedRecord.getAmount() <= minAmount) {
+            calculateMinMaxAmounts();
+            System.out.println("Итого:" + minAmount + " " + maxAmount);
+        }
+    }
+
+    public void calculateMinMaxAmounts() {
+        List<Record> allRecords = new ArrayList<>();
+        for (Account account : dataStore.getAccounts(loggedUser)) {
+            for (Record record : dataStore.getRecords(account)) {
+                allRecords.add(record);
+            }
+        }
+        calculateMinMaxAmounts(allRecords);
+    }
+
+    public void calculateMinMaxAmounts(Collection<? extends Record> allRecords) {
+        for (Record record : allRecords) {
+            if (record.getAmount() < minAmount) {
+                minAmount = record.getAmount();
+                continue;
+            } else if (record.getAmount() > maxAmount) {
+                maxAmount = record.getAmount();
+            }
+        }
+    }
+
     public long getMaxAmount() {
-        return 0l;
+        return maxAmount;
     }
 
     public long getMinAmount() {
-        return 0l;
+        return minAmount;
     }
 }

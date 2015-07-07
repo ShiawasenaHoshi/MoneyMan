@@ -2,6 +2,7 @@ package View;
 
 import Controller.Controller;
 import Controller.MoneyManTableModel;
+import Controller.SortParams;
 import Model.DataTypes.Record;
 
 import javax.swing.*;
@@ -12,10 +13,9 @@ import javax.swing.event.ListSelectionListener;
 import javax.swing.text.DateFormatter;
 import javax.swing.text.DefaultFormatterFactory;
 import javax.swing.text.MaskFormatter;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
+import javax.swing.text.NumberFormatter;
+import java.awt.event.*;
+import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 
@@ -23,25 +23,22 @@ import java.text.SimpleDateFormat;
  * Created by vasily on 03.07.15.
  */
 public class MainForm extends JFrame implements Runnable {
+    public static final String NEW_RECORD = "Новая запись";
     private JPanel rootPanel;
     private JTable tRecords;
     private JTabbedPane tpSortByTabs;
     private JList lCategories;
     private JList lAccounts;
-    private JSlider sDateFrom;
-    private JSlider sDateTo;
     private JFormattedTextField ftfDateTo;
     private JFormattedTextField ftfDateFrom;
-    private JSlider sAmountFrom;
     private JFormattedTextField ftfAmountFrom;
     private JFormattedTextField ftfAmountTo;
-    private JSlider sAmountTo;
     private JFormattedTextField ftfRecordDateTime;
     private JFormattedTextField ftfRecordAmount;
     private JComboBox cbRecordCategory;
     private JTextArea taRecordDescription;
     private JLabel lRecordID;
-    private JButton bAddRecord;
+    private JButton bCreateRecord;
     private JButton bRemoveRecord;
     private JLabel jRecordsCount;
     private JLabel jSpend;
@@ -51,10 +48,12 @@ public class MainForm extends JFrame implements Runnable {
     private JPanel RecordAddRemovePanel;
     private JPanel RecordEditPanel;
     private JPanel ControlPanel;
+    private JButton bSaveRecord;
     private Controller controller;
     private String[] columnNames = {"ID", "Дата", "Сумма", "Категория", "Описание"};
     private MoneyManTableModel tableModel;
     private SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+    private Record currentRecord;
 
     public MainForm(Controller controller) {
         super("Главная форма");
@@ -74,14 +73,33 @@ public class MainForm extends JFrame implements Runnable {
     }
 
     private void init() {
-        refreshAccountList();
+        refreshTabAccount();
         tableModel = new MoneyManTableModel(controller);
         //fixme не хватает tableheader
         tRecords.setModel(tableModel);
-        tRecords.addMouseListener(new TableMouseListener());
+//        tRecords.addMouseListener(new TableMouseListener());
+        tRecords.getSelectionModel().addListSelectionListener(new TableSelectionChangeListener());
         tpSortByTabs.addChangeListener(new SortByTabsChangeListener());
         lCategories.addListSelectionListener(new LCategoriesSelectionListener());
         lAccounts.addListSelectionListener(new LAccountsSelectionListener());
+        bCreateRecord.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                createNewRecord();
+            }
+        });
+        bRemoveRecord.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                removeRecord();
+            }
+        });
+        bSaveRecord.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                saveRecord();
+            }
+        });
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         addWindowListener(new WindowAdapter() {
             public void windowClosing(WindowEvent e) {
@@ -89,25 +107,70 @@ public class MainForm extends JFrame implements Runnable {
             }
         });
 
-        ftfRecordDateTime.setFormatterFactory(
-                new DefaultFormatterFactory(
-                        new DateFormatter(
-                                dateFormat)));
+        DefaultFormatterFactory amountDFF = new DefaultFormatterFactory(new NumberFormatter(new DecimalFormat()));
+        ftfAmountFrom.setFormatterFactory(amountDFF);
+        ftfAmountTo.setFormatterFactory(amountDFF);
+        ftfAmountFrom.setValue(controller.getMinAmount());
+        ftfAmountTo.setValue(controller.getMaxAmount());
+        AmountFromToListener amountListener = new AmountFromToListener();
+        ftfAmountFrom.addKeyListener(amountListener);
+        ftfAmountTo.addKeyListener(amountListener);
         //про создание масок для formattedTextField http://stackoverflow.com/questions/4252257/jformattedtextfield-with-maskformatter
+
+        ftfRecordDateTime.setFormatterFactory(new DefaultFormatterFactory(new DateFormatter(dateFormat)));
         try {
             MaskFormatter dateTimeMask = new MaskFormatter("####-##-## ##:##:##.###");
             dateTimeMask.install(ftfRecordDateTime);
         } catch (ParseException e) {
             e.printStackTrace();
         }
+
+        refreshTabAccount();
+        if (controller.getAccounts().length > 0) {
+            lAccounts.setSelectedIndex(0);
+        }
+        refreshTable();
         if (tableModel.getRowCount() > 0) {
             tRecords.setRowSelectionInterval(0, 0);
-            refreshRecordEdit(tableModel.getRecordAt(0));
+            refreshPanelRecordEdit(tableModel.getRecordAt(0));
         }
-
     }
 
-    private void refreshAccountList() {
+    private void refreshAfterEditRecord() {
+        switch (tpSortByTabs.getSelectedIndex()) {
+            case SortByTabsChangeListener.ACCOUNT_SORT_TAB: {
+                refreshTabAccount();
+                refreshTable();
+                break;
+            }
+            case SortByTabsChangeListener.CATEGORY_SORT_TAB: {
+                refreshTabCategory();
+                refreshTable();
+                break;
+            }
+            case SortByTabsChangeListener.AMOUNT_SORT_TAB: {
+                refreshTabAmount();
+                refreshTable();
+                break;
+            }
+            case SortByTabsChangeListener.DATETIME_SORT_TAB: {
+                refreshTabDateTime();
+                refreshTable();
+                break;
+            }
+        }
+    }
+
+    private void refreshTabDateTime() {
+        //здесь должен обновляться минимум и максимум дат
+    }
+
+    private void refreshTabAmount() {
+        ftfAmountFrom.setValue(controller.getMinAmount());
+        ftfAmountTo.setValue(controller.getMaxAmount());
+    }
+
+    private void refreshTabAccount() {
         String[] accounts = controller.getAccounts();
         if (accounts.length > 0) {
             lAccounts.setListData(accounts);
@@ -116,7 +179,7 @@ public class MainForm extends JFrame implements Runnable {
         }
     }
 
-    private void refreshCategoryList() {
+    private void refreshTabCategory() {
         String[] categories = controller.getCategories();
         //todo категорий как минимум одна, поскольку есть NO_CATEGORY
         if (categories.length > 0) {
@@ -130,78 +193,169 @@ public class MainForm extends JFrame implements Runnable {
     // туториал по табличкам http://docs.oracle.com/javase/tutorial/uiswing/components/table.html
     // выделение нескольких http://stackoverflow.com/questions/14416188/jtable-how-to-get-selected-cells
     private void refreshTable() {
+        controller.fillTableBy();
         tableModel.fireTableDataChanged();
+        jIncome.setText("Приход: " + controller.getIncome());
+        jSpend.setText("Расход: " + controller.getSpend());
+        jRecordsCount.setText("Записей: " + tableModel.getRowCount());
     }
 
     //todo можно добавить множественное редактирование
-    private void refreshRecordEdit(Record record) {
+    private void refreshPanelRecordEdit(Record record) {
+        currentRecord = record;
         lRecordID.setText("Запись №" + record.getId());
         ftfRecordDateTime.setValue(record.getCreateTime());
         ftfRecordAmount.setValue(record.getAmount());
-        //fixme здесь должно быть обновление категории
+        //todo надо придумать как не обновлять каждый раз этот список
+        cbRecordCategory.removeAllItems();
+        for (String s : controller.getCategories()) {
+            cbRecordCategory.addItem(s);
+        }
+        cbRecordCategory.setSelectedItem(record.getCategory().getName());
         taRecordDescription.setText(record.getDescription());
     }
 
-    private void writeRecord() {
-
+    private void createNewRecord() {
+        lRecordID.setText(NEW_RECORD);
+        ftfRecordDateTime.setValue(System.currentTimeMillis());
+        ftfRecordAmount.setValue(0);
+        cbRecordCategory.removeAllItems();
+        for (String s : controller.getCategories()) {
+            cbRecordCategory.addItem(s);
+        }
+        taRecordDescription.setText("");
     }
 
-    private void createNewRecord() {
+    private void saveRecord() {
+        int id;
+        long amount = ((Number) ftfRecordAmount.getValue()).longValue();
+        String description = taRecordDescription.getText();
+        int categoryIndex = cbRecordCategory.getSelectedIndex();
+        long dateTime = 0;
+        int selectedAccountIndex = lAccounts.getSelectedIndex();
+        try {
+            dateTime = dateFormat.parse(ftfRecordDateTime.getText()).getTime();
+        } catch (ParseException e) {
+            JOptionPane.showMessageDialog(this, "Некорректная дата");
+            e.printStackTrace();
+            return;
+        }
+        if (lRecordID.getText().equals(NEW_RECORD)) {
+            id = Record.NO_ID;
+        } else {
+            id = currentRecord.getId();
+        }
+        if (id == Record.NO_ID && selectedAccountIndex == -1) {
+            JOptionPane.showMessageDialog(this, "Выберите счет, чтобы сохранить в него новую запись");
+            return;
+        }
+        if (tpSortByTabs.getSelectedIndex() == SortByTabsChangeListener.ACCOUNT_SORT_TAB && selectedAccountIndex >= 0) {
+            controller.saveNewRecord(id, amount, description, categoryIndex, dateTime, selectedAccountIndex);
+        } else {
+            controller.saveEditedRecord(id, amount, description, categoryIndex, dateTime);
+        }
+        refreshAfterEditRecord();
+        refreshTable();
+    }
 
+    //todo множественное удаление
+    private void removeRecord() {
+        int row = tRecords.getSelectedRow();
+        controller.removeRecord(currentRecord.getId());
+        refreshAfterEditRecord();
+        if (row >= tRecords.getRowCount()) {
+            row = tRecords.getRowCount() - 1;
+        }
+        if (row >= 0) {
+            tRecords.setRowSelectionInterval(row, row);
+        }
     }
 
     class LCategoriesSelectionListener implements ListSelectionListener {
         @Override
         public void valueChanged(ListSelectionEvent e) {
-            controller.fillTableByCategory(lCategories.getSelectedValue().toString());
-            refreshTable();
+            if (lCategories.getSelectedIndex() >= 0) {
+                controller.fillTableBy(new SortParams().setCategoryIndex(lCategories.getSelectedIndex()));
+                refreshTable();
+            }
         }
     }
 
     class LAccountsSelectionListener implements ListSelectionListener {
         @Override
         public void valueChanged(ListSelectionEvent e) {
-            //todo там где можно обойтись int пользоваться string не гуд
-            String selected = lAccounts.getSelectedValue().toString();
-            controller.fillTableByAccount(Integer.parseInt(selected.substring(0, selected.indexOf(" "))));
-            refreshTable();
+            if (lAccounts.getSelectedIndex() >= 0) {
+                controller.fillTableBy(new SortParams().setAccountIndex(lAccounts.getSelectedIndex()));
+                refreshTable();
+            }
         }
     }
 
-    class TableMouseListener extends MouseAdapter {
+    class TableSelectionChangeListener implements ListSelectionListener {
+
         @Override
-        public void mouseClicked(MouseEvent e) {
-            int row = tRecords.rowAtPoint(e.getPoint());
-            refreshRecordEdit(tableModel.getRecordAt(row));
+        public void valueChanged(ListSelectionEvent e) {
+            int row = tRecords.getSelectedRow();
+            if (row >= 0) {
+                refreshPanelRecordEdit(tableModel.getRecordAt(row));
+            }
         }
     }
 
     class SortByTabsChangeListener implements ChangeListener {
-        static final int ACCOUNT_SORT_TAB = 0;
-        static final int CATEGORY_SORT_TAB = 1;
-        static final int DATETIME_SORT_TAB = 2;
-        static final int AMOUNT_SORT_TAB = 3;
+        public static final int ACCOUNT_SORT_TAB = 0;
+        public static final int CATEGORY_SORT_TAB = 1;
+        public static final int DATETIME_SORT_TAB = 2;
+        public static final int AMOUNT_SORT_TAB = 3;
 
         @Override
         public void stateChanged(ChangeEvent e) {
             switch (tpSortByTabs.getSelectedIndex()) {
                 case ACCOUNT_SORT_TAB: {
-                    refreshAccountList();
+                    refreshTabAccount();
                     break;
                 }
                 case CATEGORY_SORT_TAB: {
-                    refreshCategoryList();
+                    refreshTabCategory();
                     break;
                 }
                 case DATETIME_SORT_TAB: {
+                    refreshTabDateTime();
                     break;
                 }
                 case AMOUNT_SORT_TAB: {
+                    refreshTabAmount();
                     break;
                 }
             }
         }
 
+    }
+
+    class AmountFromToListener implements KeyListener {
+
+        @Override
+        public void keyTyped(KeyEvent e) {
+
+        }
+
+        @Override
+        public void keyPressed(KeyEvent e) {
+
+        }
+
+        @Override
+        public void keyReleased(KeyEvent e) {
+            if (e.getKeyCode() == 10) {
+                if (tpSortByTabs.getSelectedIndex() == SortByTabsChangeListener.AMOUNT_SORT_TAB) {
+                    if ((long) ftfAmountFrom.getValue() > (long) ftfAmountTo.getValue()) {
+                        ftfAmountFrom.setValue((long) ftfAmountTo.getValue() - 1);
+                    }
+                    controller.fillTableBy(new SortParams().setAmountRestricts((long) ftfAmountFrom.getValue(), (long) ftfAmountTo.getValue()));
+                    refreshTable();
+                }
+            }
+        }
     }
 }
 

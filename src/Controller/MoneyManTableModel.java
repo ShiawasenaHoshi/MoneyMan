@@ -21,7 +21,6 @@ public class MoneyManTableModel extends AbstractTableModel {
 
     public MoneyManTableModel(Controller controller) {
         this.controller = controller;
-//        records = new ArrayList<>();
         records = controller.getMainTable();
     }
 
@@ -53,7 +52,11 @@ public class MoneyManTableModel extends AbstractTableModel {
     }
 
     public Record getRecordAt(int index) {
-        return records.get(index);
+        if (index >= 0) {
+            return records.get(index);
+        } else {
+            return null;
+        }
     }
 
 }

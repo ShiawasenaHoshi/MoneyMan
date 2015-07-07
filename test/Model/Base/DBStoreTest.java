@@ -105,6 +105,15 @@ public class DBStoreTest {
             }
         }
         Assert.assertTrue(recordExist);
+        //тестируем редактирование записи
+        Record edRecord = new Record(recordWithID.getId(), 1l, "edRecord", recordWithID.getCategory(), System.currentTimeMillis());
+        Record returnRecord = db.addRecord(account, edRecord);
+        Record fromDBRecord = (Record) db.getDataByID(Record.class, String.valueOf(recordWithID.getId()));
+        System.out.println(edRecord.getId() + " " + returnRecord.getId());
+        Assert.assertEquals(edRecord, returnRecord);
+        Assert.assertEquals(edRecord.getId(), returnRecord.getId());
+        Assert.assertNotNull(fromDBRecord);
+        Assert.assertEquals(edRecord, fromDBRecord);
     }
 
     @Test

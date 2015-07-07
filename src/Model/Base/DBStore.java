@@ -76,9 +76,9 @@ public class DBStore implements DataStore {
         } finally {
             DBHelper.INSTANCE.closeResources(resultSet, preparedStatement);
         }
-        if (accounts.size() == 0) {
-            LOGGER.info("У пользователя {} нет ни одного счета", owner.getName());
-        }
+//        if (accounts.size() == 0) {
+//            LOGGER.info("У пользователя {} нет ни одного счета", owner.getName());
+//        }
         return accounts;
     }
 
@@ -112,9 +112,9 @@ public class DBStore implements DataStore {
         } finally {
             DBHelper.INSTANCE.closeResources(resultSet, preparedStatement);
         }
-        if (records.size() == 0) {
-            LOGGER.info("В счете {} нет ни одной записи", account.getID());
-        }
+//        if (records.size() == 0) {
+//            LOGGER.info("В счете {} нет ни одной записи", account.getID());
+//        }
         return records;
     }
 
@@ -161,7 +161,7 @@ public class DBStore implements DataStore {
             preparedStatement.setString(1, user.getName());
             preparedStatement.setString(2, user.getPasswordHash());
             preparedStatement.executeUpdate();
-            LOGGER.info("Пользователь {} добавлен", user.getName());
+//            LOGGER.info("Пользователь {} добавлен", user.getName());
         } catch (SQLException e) {
             LOGGER.error("Юзера {} добавить неполучилось: {}", user.getName(), e.getMessage());
 //            e.printStackTrace();
@@ -310,7 +310,7 @@ public class DBStore implements DataStore {
             preparedStatement = connection.prepareStatement("DELETE FROM USERS WHERE NAME = ?;");
             preparedStatement.setString(1, name);
             preparedStatement.execute();
-            LOGGER.info("Пользователь {} удален", removedUser.getName());
+//            LOGGER.info("Пользователь {} удален", removedUser.getName());
         } catch (SQLException e) {
             LOGGER.error("{}", e.getMessage());
 //            e.printStackTrace();
@@ -330,7 +330,7 @@ public class DBStore implements DataStore {
             preparedStatement = connection.prepareStatement("DELETE FROM ACCOUNTS WHERE ID = ?;");
             preparedStatement.setInt(1, account.getID());
             preparedStatement.execute();
-            LOGGER.info("Счет {} {} пользователя {} удален", account.getID(), account.getDescription(), owner.getName());
+//            LOGGER.info("Счет {} {} пользователя {} удален", account.getID(), account.getDescription(), owner.getName());
         } catch (SQLException e) {
             LOGGER.error("{}", e.getMessage());
 //            e.printStackTrace();
@@ -347,7 +347,7 @@ public class DBStore implements DataStore {
             preparedStatement = connection.prepareStatement("DELETE FROM RECORDS WHERE ID = ?");
             preparedStatement.setInt(1, record.getId());
             preparedStatement.execute();
-            LOGGER.info("Запись {} {} удалена", record.getDescription(), record.getAmount());
+//            LOGGER.info("Запись {} {} удалена", record.getDescription(), record.getAmount());
         } catch (SQLException e) {
             LOGGER.error("{}", e.getMessage());
 //            e.printStackTrace();
@@ -371,7 +371,7 @@ public class DBStore implements DataStore {
             preparedStatement = connection.prepareStatement("DELETE FROM CATEGORIES WHERE NAME = ?;");
             preparedStatement.setString(1, category.getName());
             preparedStatement.execute();
-            LOGGER.info("Категория {} {} удалена", category.getDescription());
+//            LOGGER.info("Категория {} {} удалена", category.getDescription());
         } catch (SQLException e) {
             LOGGER.error("{}", e.getMessage());
 //            e.printStackTrace();
@@ -395,7 +395,7 @@ public class DBStore implements DataStore {
                     if (resultSet.next()) {
                         String password = resultSet.getString("PASSWORD");
                         user = new User(identificator, password);
-                        LOGGER.info(user.toString());
+//                        LOGGER.info(user.toString());
                     }
                 } catch (SQLException e) {
                     e.printStackTrace();
@@ -415,7 +415,7 @@ public class DBStore implements DataStore {
                     if (resultSet.next()) {
                         String accountDescription = resultSet.getString("DESCR");
                         account = new Account(id, accountDescription);
-                        LOGGER.info(account.toString());
+//                        LOGGER.info(account.toString());
                     }
                 } catch (SQLException e) {
                     e.printStackTrace();
@@ -437,7 +437,7 @@ public class DBStore implements DataStore {
                         Long createTime = resultSet.getLong("CREATE_TIME");
                         String categoryName = resultSet.getString("CATEGORY_NAME");
                         record = new Record(id, amount, description, getCategory(categoryName), createTime);
-                        LOGGER.info(record.toString());
+//                        LOGGER.info(record.toString());
                     }
                 } catch (SQLException e) {
                     e.printStackTrace();
@@ -456,7 +456,7 @@ public class DBStore implements DataStore {
                         String categoryName = resultSet.getString("NAME");
                         String categoryDescription = resultSet.getString("DESCR");
                         category = new Category(categoryName, categoryDescription);
-                        LOGGER.info(category.toString());
+//                        LOGGER.info(category.toString());
                     }
                 } catch (SQLException e) {
                     e.printStackTrace();
