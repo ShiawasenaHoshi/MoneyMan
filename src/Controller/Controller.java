@@ -16,7 +16,6 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Created by vasily on 09.06.15.
@@ -29,7 +28,6 @@ public class Controller {
     volatile LoginDialog loginDialog = null;
     volatile MainForm mainForm = null;
     private List<Record> mainTable;
-    private int selectedAccountIndex = 0;
     private List<Account> accounts;
     private List<Category> categories;
 
@@ -78,23 +76,14 @@ public class Controller {
         dataStore.addUser(newUser);
     }
 
-    //    public Account[] getAccounts(){
-//        Set<Account> accounts = dataStore.getAccounts(loggedUser);
-//        return (Account[])accounts.toArray();
-//    }
-//
-//    public Record[] getRecords(Account account){
-//        Set<Record> records = dataStore.getRecords(account);
-//        return (Record[])records.toArray();
-//    }
     public void loggedIn(String userName) {
         loggedUser = dataStore.getUser(userName);
-        loggedUser.addAccounts(dataStore.getAccounts(loggedUser));
-        for (Account account : loggedUser.getAccounts()) {
-            account.addRecords(dataStore.getRecords(account));
-        }
+//        loggedUser.addAccounts(dataStore.getAccounts(loggedUser));
+//        for (Account account : loggedUser.getAccounts()) {
+//            account.addRecords(dataStore.getRecords(account));
+//        }
         accounts = new ArrayList<>();
-        for (Account account : loggedUser.getAccounts()) {
+        for (Account account : dataStore.getAccounts(loggedUser)) {
             accounts.add(account);
         }
         categories = new ArrayList<>();
@@ -103,59 +92,33 @@ public class Controller {
         }
         mainTable = new ArrayList<>();
         if (accounts.size() > 0) {
-            fillTableByAccount(accounts.get(0));
+            fillTableByAccount(0);
         }
     }
 
-    public void fillTableByAccount(int accountID) {
-        fillTableByAccount((Account) dataStore.getDataByID(Account.class, String.valueOf(accountID)));
-    }
-
-    public void fillTableByAccount(Account account) {
+    public void fillTableByAccount(int accountIndex) {
         mainTable.clear();
-        for (Account account1 : loggedUser.getAccounts()) {
-            if (account1.equals(account)) {
-                for (Record record : account1.getRecords()) {
-                    mainTable.add(record);
-                }
-            }
-        }
+        Account account = accounts.get(accountIndex);
+        mainTable.addAll(dataStore.getRecords(account));
     }
 
-    public void fillTableByCategory(String categoryName) {
-        fillTableByCategory(dataStore.getCategory(categoryName));
-    }
-
-    public void fillTableByCategory(Category category) {
+    public void fillTableByCategory(int categoryIndex) {
         mainTable.clear();
-        for (Account account : loggedUser.getAccounts()) {
-            for (Record record : account.getRecords()) {
+        Category category = categories.get(categoryIndex);
+        for (Account account : accounts) {
+            for (Record record : dataStore.getRecords(account)) {
                 if (record.getCategory().equals(category)) {
                     mainTable.add(record);
                 }
             }
         }
     }
-//    public String[][] getTableData(){
-//        String[][] result = new String[mainTable.size()][COLUMNS_COUNT];
-//        for (int i = 0; i < result.length; i++) {
-//            String[] row = result[i];
-//            Record record = mainTable.get(i);
-//            row[0] = String.valueOf(record.getId());
-//            row[1] = simpleDateFormat.format(record.getCreateTime());
-//            row[2] = String.valueOf(record.getAmount());
-//            row[3] = record.getCategory().getName();
-//            row[4] = record.getDescription();
-//        }
-//        return result;
-//    }
 
     public String[] getAccounts() {
-        Set<Account> accounts = loggedUser.getAccounts();
         String[] result = new String[accounts.size()];
         int i = 0;
-        for (Account account : loggedUser.getAccounts()) {
-            long balance = getBalance(account.getRecords());
+        for (Account account : accounts) {
+            long balance = getBalance(dataStore.getRecords(account));
             result[i] = String.format("%s   %s", account.getID(), (balance > 0) ? "+" + balance : balance);
             ++i;
         }
@@ -163,7 +126,6 @@ public class Controller {
     }
 
     public String[] getCategories() {
-        Set<Category> categories = dataStore.getCategories();
         String[] result = new String[categories.size()];
         int i = 0;
         for (Category category : categories) {
@@ -171,6 +133,20 @@ public class Controller {
             ++i;
         }
         return result;
+    }
+
+    private void updateAccountsList() {
+        accounts.clear();
+        accounts.addAll(dataStore.getAccounts(loggedUser));
+    }
+
+    private void updateCategoriesList() {
+        categories.clear();
+        categories.addAll(dataStore.getCategories());
+    }
+
+    public long getSpend() {
+        return getSpend(mainTable);
     }
 
     private long getSpend(Collection<Record> records) {
@@ -183,6 +159,10 @@ public class Controller {
         return result;
     }
 
+    public long getIncome() {
+        return getIncome(mainTable);
+    }
+
     private long getIncome(Collection<Record> records) {
         long result = 0;
         for (Record record : records) {
@@ -193,11 +173,73 @@ public class Controller {
         return result;
     }
 
+    public long getBalance() {
+        return getBalance(mainTable);
+    }
+
     private long getBalance(Collection<Record> records) {
         long result = 0;
         for (Record record : records) {
             result += record.getAmount();
         }
         return result;
+    }
+
+    public void removeRecord(int id) {
+        for (Account account : loggedUser.getAccounts()) {
+            for (Record record : account.getRecords()) {
+                if (record.getId() == id) {
+                    account.getRecords().remove(record);
+                    return;
+                }
+            }
+        }
+    }
+
+//    public void addRecord(int accountID, Record record) {
+//
+//    }
+
+    public void saveNewRecord(int id, long amount, String description, int categoryIndex, long createTime, int accountIndex) {
+        Record record = new Record(id, amount, description, categories.get(categoryIndex), createTime);
+        dataStore.addRecord(accounts.get(accountIndex), record);
+    }
+
+    public void saveEditedRecord(int id, long amount, String description, int categoryIndex, long createTime) {
+        Account accountTo = null;
+        Record record = new Record(id, amount, description, categories.get(categoryIndex), createTime);
+        if (record.getId() == Record.NO_ID) {
+            throw new NullPointerException("У сохраняемой записи нет идентификатора и она не привязана к счету");
+        } else {
+            for (Account account : dataStore.getAccounts(loggedUser)) {
+                for (Record existingRecord : account.getRecords()) {
+                    if (existingRecord.getId() == record.getId()) {
+                        accountTo = account;
+                        break;
+                    }
+                }
+                if (accountTo != null) {
+                    break;
+                }
+            }
+        }
+        if (accountTo == null) {
+            throw new NullPointerException("Нет записи с таким ID в базе");
+        } else {
+            dataStore.addRecord(accountTo, record);
+        }
+    }
+
+    public boolean removeCategory(int categoryIndex) {
+        //todo не забудь, что удалить NO_CATEGORY нельзя
+        return false;
+    }
+
+    public long getMaxAmount() {
+        return 0l;
+    }
+
+    public long getMinAmount() {
+        return 0l;
     }
 }
