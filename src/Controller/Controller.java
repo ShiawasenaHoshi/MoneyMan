@@ -330,17 +330,38 @@ public class Controller {
         }
     }
 
-    public void addCategory(String name, String description) {
-
+    public void addCategory(String name, String description) throws Exception {
+        Category categoryToAdd = new Category(name, description);
+        if (dataStore.addCategory(categoryToAdd) == null) {
+            throw new Exception("Категория не добавлена");
+        }
+        updateCategoriesList();
     }
 
-    public void editCategory(int categoryIndex) {
-
+    public void editCategory(int categoryIndex) throws Exception {
+        if (categories.size() == 0 || categoryIndex >= categories.size()) {
+            return;
+        }
+        Category categoryToEdit = categories.get(categoryIndex);
+        if (categoryToEdit.getName().equals(Category.NO_CATEGORY)) {
+            throw new Exception("Редактировать NO_CATEGORY нельзя");
+        }
+        dataStore.addCategory(categoryToEdit);
+        updateCategoriesList();
+        fillTableBy();
     }
 
-    public void removeCategory(int categoryIndex) {
-        //todo не забудь, что удалить NO_CATEGORY нельзя
-
+    public void removeCategory(int categoryIndex) throws Exception {
+        if (categories.size() == 0 || categoryIndex >= categories.size()) {
+            return;
+        }
+        Category categoryToRemove = categories.get(categoryIndex);
+        if (categoryToRemove.getName().equals(Category.NO_CATEGORY)) {
+            throw new Exception("Удалить NO_CATEGORY нельзя");
+        }
+        dataStore.removeCategory(categoryToRemove);
+        updateCategoriesList();
+        fillTableBy();
     }
 
     public void calculateMinMaxAmountsAfterChanges(Record editedRecord) {

@@ -59,6 +59,10 @@ public class MainForm extends JFrame implements Runnable {
     private JButton bRemoveCategory;
     private JTextField tfAccountDescription;
     private JPanel accountPanel;
+    private JPanel categoryPanel;
+    private JTextField tfCategoryName;
+    private JTextField tfCategoryDescription;
+    private JPanel categoryTextFieldsPanel;
     private Controller controller;
     private String[] columnNames = {"ID", "Дата", "Сумма", "Категория", "Описание"};
     private MoneyManTableModel tableModel;
@@ -85,46 +89,40 @@ public class MainForm extends JFrame implements Runnable {
     }
 
     private void init() {
-        refreshTabAccount();
-        tfAccountDescription.setVisible(false);
-        tfAccountDescription.addKeyListener(new AccountTextFieldListener());
+        //Иницализация таблицы
         tableModel = new MoneyManTableModel(controller, columnNames);
         tRecords.setModel(tableModel);
 //        tRecords.addMouseListener(new TableMouseListener());
         tRecords.getSelectionModel().addListSelectionListener(new TableSelectionChangeListener());
         tRecords.setDefaultRenderer(Object.class, new TableRenderer());
+
+
+        //Инициализация кнопок редактирования записи
+        bCreateRecord.addActionListener(e -> createNewRecord());
+        bRemoveRecord.addActionListener(e -> removeRecord());
+        bSaveRecord.addActionListener(e -> saveRecord());
+
+        //Инициализация табов
         tpSortByTabs.addChangeListener(new SortByTabsChangeListener());
-        lCategories.addListSelectionListener(new LCategoriesSelectionListener());
+        //Инициализация таба с счетами
         lAccounts.addListSelectionListener(new LAccountsSelectionListener());
-        bCreateRecord.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                createNewRecord();
-            }
-        });
-        bRemoveRecord.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                removeRecord();
-            }
-        });
-        bSaveRecord.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                saveRecord();
-            }
-        });
         AccountButtonsListener accountButtonsListener = new AccountButtonsListener();
         bAddAccount.addActionListener(accountButtonsListener);
         bEditAccount.addActionListener(accountButtonsListener);
         bRemoveAccount.addActionListener(accountButtonsListener);
+        tfAccountDescription.setVisible(false);
+        tfAccountDescription.addKeyListener(new AccountTextFieldListener());
 
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        addWindowListener(new WindowAdapter() {
-            public void windowClosing(WindowEvent e) {
-                onExit();
-            }
-        });
+        //Инициализация таба с категориями
+        lCategories.addListSelectionListener(new LCategoriesSelectionListener());
+        CategoryButtonsListener categoryButtonsListener = new CategoryButtonsListener();
+        bAddCategory.addActionListener(categoryButtonsListener);
+        bEditCategory.addActionListener(categoryButtonsListener);
+        bRemoveCategory.addActionListener(categoryButtonsListener);
+        categoryTextFieldsPanel.setVisible(false);
+        CategoryTextFieldsListener categoryTextFieldsListener = new CategoryTextFieldsListener();
+        tfCategoryName.addKeyListener(categoryTextFieldsListener);
+        tfCategoryDescription.addKeyListener(categoryTextFieldsListener);
 
         DefaultFormatterFactory amountDFF = new DefaultFormatterFactory(new NumberFormatter(new DecimalFormat()));
         ftfAmountFrom.setFormatterFactory(amountDFF);
@@ -135,11 +133,10 @@ public class MainForm extends JFrame implements Runnable {
         ftfAmountFrom.addKeyListener(amountListener);
         ftfAmountTo.addKeyListener(amountListener);
 
-
-        //про создание масок для formattedTextField http://stackoverflow.com/questions/4252257/jformattedtextfield-with-maskformatter
         DateTimeFromToListener dateTimeFromToListener = new DateTimeFromToListener();
         ftfDateFrom.addKeyListener(dateTimeFromToListener);
         ftfDateTo.addKeyListener(dateTimeFromToListener);
+
         DefaultFormatterFactory dateTimeDFF = new DefaultFormatterFactory(new DateFormatter(dateFormat));
         ftfRecordDateTime.setFormatterFactory(dateTimeDFF);
         ftfDateFrom.setFormatterFactory(dateTimeDFF);
@@ -152,6 +149,13 @@ public class MainForm extends JFrame implements Runnable {
         } catch (ParseException e) {
             e.printStackTrace();
         }
+
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        addWindowListener(new WindowAdapter() {
+            public void windowClosing(WindowEvent e) {
+                onExit();
+            }
+        });
 
         refreshTabAccount();
         if (controller.getAccounts().length > 0) {
@@ -210,6 +214,7 @@ public class MainForm extends JFrame implements Runnable {
     }
 
     private void refreshTabCategory() {
+        categoryPanel.validate();
         String[] categories = controller.getCategories();
         if (categories.length > 0) {
             lCategories.setListData(categories);
@@ -434,9 +439,7 @@ public class MainForm extends JFrame implements Runnable {
         }
     }
 
-    //todo проверка на вводимые названия категорий
-    //todo проверка на вводимые названия счетов
-    //todo не зачем юзеру вводить название категории. Пусть оно транслитерируется из Описания
+
     class AccountButtonsListener implements ActionListener {
         @Override
         public void actionPerformed(ActionEvent e) {
@@ -486,6 +489,7 @@ public class MainForm extends JFrame implements Runnable {
         }
     }
 
+    //todo проверка на вводимые названия счетов
     class AccountTextFieldListener implements KeyListener {
 
         @Override
@@ -522,6 +526,78 @@ public class MainForm extends JFrame implements Runnable {
                     }
                 }
             }
+        }
+    }
+
+
+    class CategoryButtonsListener implements ActionListener {
+
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            if (e.getSource().equals(bAddAccount)) {
+                showTextFieldsPanel();
+            } else if (e.getSource().equals(bEditAccount)) {
+                if (lAccounts.getSelectedIndex() >= 0) {
+                    showTextFieldsPanel();
+                    refreshTextFields();
+                }
+            } else if (e.getSource().equals(bRemoveAccount)) {
+                if (lAccounts.getSelectedIndex() >= 0) {
+                    //прежде удаления вызвать мбокс
+                    int response = JOptionPane.showConfirmDialog(null, "Вы уверены, что хотите удалить данный счет",
+                            "Подтверждение удаления счета",
+                            JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+                    if (response == JOptionPane.NO_OPTION) {
+
+                    } else if (response == JOptionPane.YES_OPTION) {
+                        removeCategory();
+                    } else if (response == JOptionPane.CLOSED_OPTION) {
+
+                    }
+                }
+            }
+        }
+
+        private void removeCategory() {
+            try {
+                controller.removeAccount(lAccounts.getSelectedIndex());
+            } catch (Exception e1) {
+                e1.printStackTrace();
+            }
+            refreshTabCategory();
+            refreshTable();
+        }
+
+        private void showTextFieldsPanel() {
+            if (!categoryTextFieldsPanel.isVisible()) {
+                categoryTextFieldsPanel.setVisible(true);
+                refreshTabCategory();
+            }
+        }
+
+        public void refreshTextFields() {
+            tfCategoryName.setText(controller.getAccount(lAccounts.getSelectedIndex()));
+            tfCategoryDescription.setText();
+        }
+    }
+
+    //todo проверка на вводимые названия категорий
+    //todo не зачем юзеру вводить название категории. Пусть оно транслитерируется из Описания
+    class CategoryTextFieldsListener implements KeyListener {
+
+        @Override
+        public void keyTyped(KeyEvent e) {
+
+        }
+
+        @Override
+        public void keyPressed(KeyEvent e) {
+
+        }
+
+        @Override
+        public void keyReleased(KeyEvent e) {
+
         }
     }
 }
