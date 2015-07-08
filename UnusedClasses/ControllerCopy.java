@@ -4,7 +4,6 @@ import Model.Base.DBStore;
 import Model.Base.DataStore;
 import Model.DataTypes.*;
 import Model.Tools.HashMaker;
-import Model.Tools.Transliterator;
 import View.LoginDialog;
 import View.MainForm;
 import org.slf4j.Logger;
@@ -119,15 +118,19 @@ public class Controller {
         return result;
     }
 
-    public String getCategory(int index) {
-        return categories.get(index).getDescription();
+    public String[] getCategory(int index){
+        String[] categoryInfo = new String[2];
+        Category category = categories.get(index);
+        categoryInfo[0] = category.getName();
+        categoryInfo[1] = category.getDescription();
+        return categoryInfo;
     }
 
     public String[] getCategories() {
         String[] result = new String[categories.size()];
         int i = 0;
         for (Category category : categories) {
-            result[i] = category.getDescription().equals("") ? "Без категории" : category.getDescription();
+            result[i] = category.getDescription();
             ++i;
         }
         return result;
@@ -146,22 +149,22 @@ public class Controller {
         if (selectParams.getAccountIndex() >= 0) {
             if (selectParams.getAccountIndex() < accounts.size()) {
                 mainTable.addAll(dataStore.getRecords(accounts.get(selectParams.getAccountIndex())));
-            }
-        } else {
-            Set<Account> accounts = dataStore.getAccounts(loggedUser);
-            if (accounts.size() == 0) {
-                return;
-            }
-            for (Account account : accounts) {
-                for (Record record : dataStore.getRecords(account)) {
-                    mainTable.add(record);
+            } else {
+                Set<Account> accounts = dataStore.getAccounts(loggedUser);
+                if (accounts.size() == 0) {
+                    return;
+                }
+                for (Account account : accounts) {
+                    for (Record record : dataStore.getRecords(account)) {
+                        mainTable.add(record);
+                    }
                 }
             }
         }
         if (selectParams.getCategoryIndex() >= 0) {
             if (selectParams.getCategoryIndex() < categories.size()) {
                 for (int i = mainTable.size() - 1; i >= 0; i--) {
-                    if (!mainTable.get(i).getCategory().getName().equals(categories.get(selectParams.getCategoryIndex()).getName())) {
+                    if (!mainTable.get(i).getCategory().equals(categories.get(selectParams.getCategoryIndex()))) {
                         mainTable.remove(i);
                     }
                 }
@@ -276,11 +279,11 @@ public class Controller {
         fillTableBy(lastSelectParams);
     }
 
-    public void saveEditedRecord(int id, long amount, String description, int categoryIndex, long createTime) throws Exception {
+    public void saveEditedRecord(int id, long amount, String description, int categoryIndex, long createTime) {
         Account accountTo = null;
         Record record = new Record(id, amount, description, categories.get(categoryIndex), createTime);
         if (record.getId() == Record.NO_ID) {
-            throw new Exception("У сохраняемой записи нет идентификатора и она не привязана к счету");
+            throw new NullPointerException("У сохраняемой записи нет идентификатора и она не привязана к счету");
         } else {
             for (Account account : dataStore.getAccounts(loggedUser)) {
                 for (Record existingRecord : account.getRecords()) {
@@ -295,7 +298,7 @@ public class Controller {
             }
         }
         if (accountTo == null) {
-            throw new Exception("Нет записи с таким ID в базе");
+            throw new NullPointerException("Нет записи с таким ID в базе");
         } else {
             dataStore.addRecord(accountTo, record);
             calculateMinMaxAmountsAfterChanges(record);
@@ -335,8 +338,8 @@ public class Controller {
         }
     }
 
-    public void addCategory(String description) throws Exception {
-        Category categoryToAdd = new Category(Transliterator.transliterate(description), description);
+    public void addCategory(String name, String description) throws Exception {
+        Category categoryToAdd = new Category(name, description);
         if (dataStore.addCategory(categoryToAdd) == null) {
             throw new Exception("Категория не добавлена");
         }

@@ -60,7 +60,9 @@ public class MainForm extends JFrame implements Runnable {
     private JTextField tfAccountDescription;
     private JPanel accountPanel;
     private JPanel categoryPanel;
+    private JTextField tfCategoryName;
     private JTextField tfCategoryDescription;
+    private JPanel categoryTextFieldsPanel;
     private Controller controller;
     private String[] columnNames = {"ID", "Дата", "Сумма", "Категория", "Описание"};
     private MoneyManTableModel tableModel;
@@ -117,8 +119,10 @@ public class MainForm extends JFrame implements Runnable {
         bAddCategory.addActionListener(categoryButtonsListener);
         bEditCategory.addActionListener(categoryButtonsListener);
         bRemoveCategory.addActionListener(categoryButtonsListener);
-        tfCategoryDescription.setVisible(false);
-        tfCategoryDescription.addKeyListener(new CategoryTextFieldListener());
+        categoryTextFieldsPanel.setVisible(false);
+        CategoryTextFieldsListener categoryTextFieldsListener = new CategoryTextFieldsListener();
+        tfCategoryName.addKeyListener(categoryTextFieldsListener);
+        tfCategoryDescription.addKeyListener(categoryTextFieldsListener);
 
         DefaultFormatterFactory amountDFF = new DefaultFormatterFactory(new NumberFormatter(new DecimalFormat()));
         ftfAmountFrom.setFormatterFactory(amountDFF);
@@ -219,6 +223,9 @@ public class MainForm extends JFrame implements Runnable {
         }
     }
 
+    //О том как редактировать отдельные ячейки http://stackoverflow.com/questions/5918727/updating-data-in-a-jtable
+    // туториал по табличкам http://docs.oracle.com/javase/tutorial/uiswing/components/table.html
+    // выделение нескольких http://stackoverflow.com/questions/14416188/jtable-how-to-get-selected-cells
     private void refreshTable() {
         controller.fillTableBy();
         tableModel.fireTableDataChanged();
@@ -279,12 +286,7 @@ public class MainForm extends JFrame implements Runnable {
         if (tpSortByTabs.getSelectedIndex() == SortByTabsChangeListener.ACCOUNT_SORT_TAB && selectedAccountIndex >= 0) {
             controller.saveNewRecord(id, amount, description, categoryIndex, dateTime, selectedAccountIndex);
         } else {
-            try {
-                controller.saveEditedRecord(id, amount, description, categoryIndex, dateTime);
-            } catch (Exception e) {
-                JOptionPane.showMessageDialog(this, "Выберите счет, чтобы сохранить в него новую запись", "Счет не выбран", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
+            controller.saveEditedRecord(id, amount, description, categoryIndex, dateTime);
         }
         refreshAfterEditRecord();
         refreshTable();
@@ -344,27 +346,24 @@ public class MainForm extends JFrame implements Runnable {
         public void stateChanged(ChangeEvent e) {
             switch (tpSortByTabs.getSelectedIndex()) {
                 case ACCOUNT_SORT_TAB: {
-                    bCreateRecord.setEnabled(true);
                     refreshTabAccount();
                     break;
                 }
                 case CATEGORY_SORT_TAB: {
-                    bCreateRecord.setEnabled(false);
                     refreshTabCategory();
                     break;
                 }
                 case DATETIME_SORT_TAB: {
-                    bCreateRecord.setEnabled(false);
                     refreshTabDateTime();
                     break;
                 }
                 case AMOUNT_SORT_TAB: {
-                    bCreateRecord.setEnabled(false);
                     refreshTabAmount();
                     break;
                 }
             }
         }
+
     }
 
     class AmountFromToListener implements KeyListener {
@@ -439,6 +438,7 @@ public class MainForm extends JFrame implements Runnable {
             return c;
         }
     }
+
 
     class AccountButtonsListener implements ActionListener {
         @Override
@@ -529,15 +529,18 @@ public class MainForm extends JFrame implements Runnable {
         }
     }
 
+
     class CategoryButtonsListener implements ActionListener {
+        public static final int CATEGORY_NAME = 0;
+        public static final int CATEGORY_DESCRIPTION = 1;
         @Override
         public void actionPerformed(ActionEvent e) {
             if (e.getSource().equals(bAddCategory)) {
-                showTextField();
+                showTextFieldsPanel();
             } else if (e.getSource().equals(bEditCategory)) {
                 if (lCategories.getSelectedIndex() >= 0) {
-                    showTextField();
-                    refreshTextField();
+                    showTextFieldsPanel();
+                    refreshTextFields();
                 }
             } else if (e.getSource().equals(bRemoveCategory)) {
                 if (lCategories.getSelectedIndex() >= 0) {
@@ -553,7 +556,6 @@ public class MainForm extends JFrame implements Runnable {
                     }
                 }
             }
-            refreshPanelRecordEdit(currentRecord);
         }
 
         private void removeCategory() {
@@ -566,20 +568,23 @@ public class MainForm extends JFrame implements Runnable {
             refreshTable();
         }
 
-        private void showTextField() {
-            if (!tfCategoryDescription.isVisible()) {
-                tfCategoryDescription.setVisible(true);
+        private void showTextFieldsPanel() {
+            if (!categoryTextFieldsPanel.isVisible()) {
+                categoryTextFieldsPanel.setVisible(true);
                 refreshTabCategory();
             }
         }
 
-        public void refreshTextField() {
-            tfCategoryDescription.setText(controller.getCategory(lCategories.getSelectedIndex()));
+        public void refreshTextFields() {
+            String[] category = controller.getCategory(lCategories.getSelectedIndex());
+            tfCategoryName.setText(category[CATEGORY_NAME]);
+            tfCategoryDescription.setText(category[CATEGORY_DESCRIPTION]);
         }
     }
 
     //todo проверка на вводимые названия категорий
-    class CategoryTextFieldListener implements KeyListener {
+    //todo не зачем юзеру вводить название категории. Пусть оно транслитерируется из Описания
+    class CategoryTextFieldsListener implements KeyListener {
 
         @Override
         public void keyTyped(KeyEvent e) {
@@ -594,9 +599,11 @@ public class MainForm extends JFrame implements Runnable {
         @Override
         public void keyReleased(KeyEvent e) {
             if (e.getKeyCode() == 10) {
+                String name = tfCategoryName.getText();
+                String description = tfCategoryDescription.getText();
                 if (lCategories.getSelectedIndex() >= 0) {
                     try {
-                        controller.editCategory(lCategories.getSelectedIndex(), tfCategoryDescription.getText());
+                        controller.editCategory(lAccounts.getSelectedIndex(), tfCategoryDescription.getText());
                         tfCategoryDescription.setText("");
                         tfCategoryDescription.setVisible(false);
                         refreshTabCategory();
@@ -605,7 +612,7 @@ public class MainForm extends JFrame implements Runnable {
                     }
                 } else {
                     try {
-                        controller.addCategory(tfCategoryDescription.getText());
+                        controller.addAccount(description);
                         tfCategoryDescription.setText("");
                         tfCategoryDescription.setVisible(false);
                         refreshTabCategory();
@@ -613,7 +620,6 @@ public class MainForm extends JFrame implements Runnable {
                         e1.printStackTrace();
                     }
                 }
-                refreshPanelRecordEdit(currentRecord);
             }
         }
     }
