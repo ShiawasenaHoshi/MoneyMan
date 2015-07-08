@@ -3,7 +3,7 @@ package Controller;
 /**
  * Created by vasily on 07.07.15.
  */
-public class SortParams {
+public class SelectParams {
     private int accountIndex = -1;
     private int categoryIndex = -1;
     private boolean amountRestricts = false;
@@ -17,7 +17,7 @@ public class SortParams {
         return accountIndex;
     }
 
-    public SortParams setAccountIndex(int accountIndex) {
+    public SelectParams setAccountIndex(int accountIndex) {
         this.accountIndex = accountIndex;
         return this;
     }
@@ -38,7 +38,7 @@ public class SortParams {
         return categoryIndex;
     }
 
-    public SortParams setCategoryIndex(int categoryIndex) {
+    public SelectParams setCategoryIndex(int categoryIndex) {
         this.categoryIndex = categoryIndex;
         return this;
     }
@@ -55,26 +55,26 @@ public class SortParams {
         return dateTimeTo;
     }
 
-    public SortParams setDateTimeRestricts(long dateTimeFrom, long dateTimeTo) {
+    public SelectParams setDateTimeRestricts(long dateTimeFrom, long dateTimeTo) {
         this.dateTimeFrom = dateTimeFrom;
         this.dateTimeTo = dateTimeTo;
         dateTimeRestricts = true;
         return this;
     }
 
-    public SortParams offDateTimeRestricts() {
+    public SelectParams offDateTimeRestricts() {
         dateTimeRestricts = false;
         return this;
     }
 
-    public SortParams setAmountRestricts(long amountFrom, long amountTo) {
+    public SelectParams setAmountRestricts(long amountFrom, long amountTo) {
         this.amountFrom = amountFrom;
         this.amountTo = amountTo;
         amountRestricts = true;
         return this;
     }
 
-    public SortParams offAmountRestricts() {
+    public SelectParams offAmountRestricts() {
         amountRestricts = false;
         return this;
     }

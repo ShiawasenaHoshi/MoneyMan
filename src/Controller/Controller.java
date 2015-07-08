@@ -13,9 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 
 /**
  * Created by vasily on 09.06.15.
@@ -30,9 +28,12 @@ public class Controller {
     private List<Record> mainTable;
     private List<Account> accounts;
     private List<Category> categories;
-    private SortParams lastSortParams;
-    private volatile long minAmount = 0;
-    private volatile long maxAmount = 0;
+    private SelectParams lastSelectParams;
+    private long minAmount = 0;
+    private long maxAmount = 0;
+    private long minDateTime = 0;
+    private long maxDateTime = 0;
+    private Comparator<Record> sorter;
 
     public Controller() {
         dataStore = new DBStore();
@@ -80,24 +81,29 @@ public class Controller {
     }
 
     public void loggedIn(String userName) {
+        sorter = new Comparator<Record>() {
+            @Override
+            public int compare(Record o1, Record o2) {
+                if (o1.getCreateTime() < o2.getCreateTime()) {
+                    return -1;
+                }
+                if (o1.getCreateTime() > o2.getCreateTime()) {
+                    return 1;
+                }
+                return 0;
+            }
+        };
         loggedUser = dataStore.getUser(userName);
-//        loggedUser.addAccounts(dataStore.getAccounts(loggedUser));
-//        for (Account account : loggedUser.getAccounts()) {
-//            account.addRecords(dataStore.getRecords(account));
-//        }
+
         accounts = new ArrayList<>();
-        for (Account account : dataStore.getAccounts(loggedUser)) {
-            accounts.add(account);
-        }
+        updateAccountsList();
         categories = new ArrayList<>();
-        for (Category category : dataStore.getCategories()) {
-            categories.add(category);
-        }
+        updateCategoriesList();
         mainTable = new ArrayList<>();
         if (accounts.size() > 0) {
-            fillTableBy(new SortParams().setAccountIndex(0));
+            fillTableBy(new SelectParams().setAccountIndex(0));
         }
-        calculateMinMaxAmounts();
+        calculateMinMax();
     }
 
     public String[] getAccounts() {
@@ -112,15 +118,15 @@ public class Controller {
     }
 
     public void fillTableBy() {
-        fillTableBy(lastSortParams);
+        fillTableBy(lastSelectParams);
     }
 
-    public void fillTableBy(SortParams sortParams) {
+    public void fillTableBy(SelectParams selectParams) {
         //fixme нужна проверка на существовании категории и аккаунта, что в params
-        lastSortParams = sortParams;
+        lastSelectParams = selectParams;
         mainTable.clear();
-        if (sortParams.getAccountIndex() >= 0) {
-            mainTable.addAll(dataStore.getRecords(accounts.get(sortParams.getAccountIndex())));
+        if (selectParams.getAccountIndex() >= 0) {
+            mainTable.addAll(dataStore.getRecords(accounts.get(selectParams.getAccountIndex())));
         } else {
             for (Account account : dataStore.getAccounts(loggedUser)) {
                 for (Record record : dataStore.getRecords(account)) {
@@ -128,27 +134,37 @@ public class Controller {
                 }
             }
         }
-        if (sortParams.getCategoryIndex() >= 0) {
+        if (selectParams.getCategoryIndex() >= 0) {
             for (int i = mainTable.size() - 1; i >= 0; i--) {
-                if (!mainTable.get(i).getCategory().equals(categories.get(sortParams.getCategoryIndex()))) {
+                if (!mainTable.get(i).getCategory().equals(categories.get(selectParams.getCategoryIndex()))) {
                     mainTable.remove(i);
                 }
             }
         }
-        if (sortParams.isAmountRestricted()) {
+        if (selectParams.isAmountRestricted()) {
             for (int i = mainTable.size() - 1; i >= 0; i--) {
-                if (mainTable.get(i).getAmount() < sortParams.getAmountFrom() || mainTable.get(i).getAmount() > sortParams.getAmountTo()) {
+                if (mainTable.get(i).getAmount() < selectParams.getAmountFrom() || mainTable.get(i).getAmount() > selectParams.getAmountTo()) {
                     mainTable.remove(i);
                 }
             }
         }
-        if (sortParams.isDateTimeRestricted()) {
+        if (selectParams.isDateTimeRestricted()) {
             for (int i = mainTable.size() - 1; i >= 0; i--) {
-                if (mainTable.get(i).getCreateTime() < sortParams.getDateTimeFrom() && mainTable.get(i).getAmount() > sortParams.getDateTimeTo()) {
+                if (mainTable.get(i).getCreateTime() < selectParams.getDateTimeFrom() || mainTable.get(i).getAmount() > selectParams.getDateTimeTo()) {
                     mainTable.remove(i);
                 }
             }
         }
+        sortBy();
+    }
+
+    public void sortBy() {
+        sortBy(mainTable, sorter);
+    }
+
+    public void sortBy(List<Record> records, Comparator<Record> sorter) {
+        this.sorter = sorter;
+        Collections.sort(records, sorter);
     }
 
     public String[] getCategories() {
@@ -234,7 +250,7 @@ public class Controller {
         Record record = new Record(id, amount, description, categories.get(categoryIndex), createTime);
         dataStore.addRecord(accounts.get(accountIndex), record);
         calculateMinMaxAmountsAfterChanges(record);
-        fillTableBy(lastSortParams);
+        fillTableBy(lastSelectParams);
     }
 
     public void saveEditedRecord(int id, long amount, String description, int categoryIndex, long createTime) {
@@ -260,7 +276,7 @@ public class Controller {
         } else {
             dataStore.addRecord(accountTo, record);
             calculateMinMaxAmountsAfterChanges(record);
-            fillTableBy(lastSortParams);
+            fillTableBy(lastSelectParams);
         }
     }
 
@@ -271,28 +287,36 @@ public class Controller {
 
     public void calculateMinMaxAmountsAfterChanges(Record editedRecord) {
         if (editedRecord.getAmount() >= maxAmount || editedRecord.getAmount() <= minAmount) {
-            calculateMinMaxAmounts();
+            calculateMinMax();
             System.out.println("Итого:" + minAmount + " " + maxAmount);
         }
     }
 
-    public void calculateMinMaxAmounts() {
+    public void calculateMinMax() {
         List<Record> allRecords = new ArrayList<>();
         for (Account account : dataStore.getAccounts(loggedUser)) {
             for (Record record : dataStore.getRecords(account)) {
                 allRecords.add(record);
             }
         }
-        calculateMinMaxAmounts(allRecords);
+        calculateMinMax(allRecords);
     }
 
-    public void calculateMinMaxAmounts(Collection<? extends Record> allRecords) {
+    public void calculateMinMax(Collection<? extends Record> allRecords) {
+        minDateTime = 0;
         for (Record record : allRecords) {
             if (record.getAmount() < minAmount) {
                 minAmount = record.getAmount();
-                continue;
             } else if (record.getAmount() > maxAmount) {
                 maxAmount = record.getAmount();
+            }
+            if (minDateTime == 0) {
+                minDateTime = record.getCreateTime();
+            }
+            if (record.getCreateTime() < minDateTime) {
+                minDateTime = record.getCreateTime();
+            } else if (record.getCreateTime() > maxDateTime) {
+                maxDateTime = record.getCreateTime();
             }
         }
     }
@@ -303,5 +327,13 @@ public class Controller {
 
     public long getMinAmount() {
         return minAmount;
+    }
+
+    public long getMaxDateTime() {
+        return maxDateTime;
+    }
+
+    public long getMinDateTime() {
+        return minDateTime;
     }
 }

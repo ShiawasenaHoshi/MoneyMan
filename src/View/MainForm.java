@@ -2,7 +2,7 @@ package View;
 
 import Controller.Controller;
 import Controller.MoneyManTableModel;
-import Controller.SortParams;
+import Controller.SelectParams;
 import Model.DataTypes.Record;
 
 import javax.swing.*;
@@ -10,10 +10,12 @@ import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.text.DateFormatter;
 import javax.swing.text.DefaultFormatterFactory;
 import javax.swing.text.MaskFormatter;
 import javax.swing.text.NumberFormatter;
+import java.awt.*;
 import java.awt.event.*;
 import java.text.DecimalFormat;
 import java.text.ParseException;
@@ -54,10 +56,12 @@ public class MainForm extends JFrame implements Runnable {
     private MoneyManTableModel tableModel;
     private SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
     private Record currentRecord;
+    private Frame thisFrame;
 
     public MainForm(Controller controller) {
         super("Главная форма");
         this.controller = controller;
+        thisFrame = this;
         init();
     }
 
@@ -74,11 +78,12 @@ public class MainForm extends JFrame implements Runnable {
 
     private void init() {
         refreshTabAccount();
-        tableModel = new MoneyManTableModel(controller);
+        tableModel = new MoneyManTableModel(controller, columnNames);
         //fixme не хватает tableheader
         tRecords.setModel(tableModel);
 //        tRecords.addMouseListener(new TableMouseListener());
         tRecords.getSelectionModel().addListSelectionListener(new TableSelectionChangeListener());
+        tRecords.setDefaultRenderer(Object.class, new TableRenderer());
         tpSortByTabs.addChangeListener(new SortByTabsChangeListener());
         lCategories.addListSelectionListener(new LCategoriesSelectionListener());
         lAccounts.addListSelectionListener(new LAccountsSelectionListener());
@@ -115,12 +120,21 @@ public class MainForm extends JFrame implements Runnable {
         AmountFromToListener amountListener = new AmountFromToListener();
         ftfAmountFrom.addKeyListener(amountListener);
         ftfAmountTo.addKeyListener(amountListener);
-        //про создание масок для formattedTextField http://stackoverflow.com/questions/4252257/jformattedtextfield-with-maskformatter
 
-        ftfRecordDateTime.setFormatterFactory(new DefaultFormatterFactory(new DateFormatter(dateFormat)));
+
+        //про создание масок для formattedTextField http://stackoverflow.com/questions/4252257/jformattedtextfield-with-maskformatter
+        DateTimeFromToListener dateTimeFromToListener = new DateTimeFromToListener();
+        ftfDateFrom.addKeyListener(dateTimeFromToListener);
+        ftfDateTo.addKeyListener(dateTimeFromToListener);
+        DefaultFormatterFactory dateTimeDFF = new DefaultFormatterFactory(new DateFormatter(dateFormat));
+        ftfRecordDateTime.setFormatterFactory(dateTimeDFF);
+        ftfDateFrom.setFormatterFactory(dateTimeDFF);
+        ftfDateTo.setFormatterFactory(dateTimeDFF);
         try {
             MaskFormatter dateTimeMask = new MaskFormatter("####-##-## ##:##:##.###");
             dateTimeMask.install(ftfRecordDateTime);
+            dateTimeMask.install(ftfDateFrom);
+            dateTimeMask.install(ftfDateTo);
         } catch (ParseException e) {
             e.printStackTrace();
         }
@@ -162,7 +176,8 @@ public class MainForm extends JFrame implements Runnable {
     }
 
     private void refreshTabDateTime() {
-        //здесь должен обновляться минимум и максимум дат
+        ftfDateFrom.setValue(controller.getMinDateTime());
+        ftfDateTo.setValue(controller.getMaxDateTime());
     }
 
     private void refreshTabAmount() {
@@ -195,7 +210,7 @@ public class MainForm extends JFrame implements Runnable {
     private void refreshTable() {
         controller.fillTableBy();
         tableModel.fireTableDataChanged();
-        jIncome.setText("Приход: " + controller.getIncome());
+        jIncome.setText("Приход: +" + controller.getIncome());
         jSpend.setText("Расход: " + controller.getSpend());
         jRecordsCount.setText("Записей: " + tableModel.getRowCount());
     }
@@ -275,7 +290,7 @@ public class MainForm extends JFrame implements Runnable {
         @Override
         public void valueChanged(ListSelectionEvent e) {
             if (lCategories.getSelectedIndex() >= 0) {
-                controller.fillTableBy(new SortParams().setCategoryIndex(lCategories.getSelectedIndex()));
+                controller.fillTableBy(new SelectParams().setCategoryIndex(lCategories.getSelectedIndex()));
                 refreshTable();
             }
         }
@@ -285,7 +300,7 @@ public class MainForm extends JFrame implements Runnable {
         @Override
         public void valueChanged(ListSelectionEvent e) {
             if (lAccounts.getSelectedIndex() >= 0) {
-                controller.fillTableBy(new SortParams().setAccountIndex(lAccounts.getSelectedIndex()));
+                controller.fillTableBy(new SelectParams().setAccountIndex(lAccounts.getSelectedIndex()));
                 refreshTable();
             }
         }
@@ -351,10 +366,57 @@ public class MainForm extends JFrame implements Runnable {
                     if ((long) ftfAmountFrom.getValue() > (long) ftfAmountTo.getValue()) {
                         ftfAmountFrom.setValue((long) ftfAmountTo.getValue() - 1);
                     }
-                    controller.fillTableBy(new SortParams().setAmountRestricts((long) ftfAmountFrom.getValue(), (long) ftfAmountTo.getValue()));
+                    controller.fillTableBy(new SelectParams().setAmountRestricts((long) ftfAmountFrom.getValue(), (long) ftfAmountTo.getValue()));
                     refreshTable();
                 }
             }
+        }
+    }
+
+    class DateTimeFromToListener implements KeyListener {
+
+        @Override
+        public void keyTyped(KeyEvent e) {
+
+        }
+
+        @Override
+        public void keyPressed(KeyEvent e) {
+
+        }
+
+        @Override
+        public void keyReleased(KeyEvent e) {
+            if (e.getKeyCode() == 10) {
+                if (tpSortByTabs.getSelectedIndex() == SortByTabsChangeListener.DATETIME_SORT_TAB) {
+                    long dateTimeFrom;
+                    long dateTimeTo;
+                    try {
+                        dateTimeFrom = dateFormat.parse(ftfDateFrom.getText()).getTime();
+                        dateTimeTo = dateFormat.parse(ftfDateTo.getText()).getTime();
+                    } catch (ParseException exception) {
+                        JOptionPane.showMessageDialog(thisFrame, "Некорректная дата");
+                        exception.printStackTrace();
+                        return;
+                    }
+                    if (dateTimeFrom > dateTimeTo) {
+                        dateTimeFrom = dateTimeTo - 10000;
+                        ftfDateFrom.setValue(dateTimeFrom);
+                        ftfDateTo.setValue(dateTimeTo);
+                    }
+                    controller.fillTableBy(new SelectParams().setDateTimeRestricts(dateTimeFrom, dateTimeTo));
+                    refreshTable();
+                }
+            }
+        }
+    }
+
+    class TableRenderer extends DefaultTableCellRenderer {
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+            final Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+            c.setBackground(row % 2 == 0 ? Color.LIGHT_GRAY : Color.WHITE);
+            return c;
         }
     }
 }

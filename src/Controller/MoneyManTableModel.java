@@ -1,8 +1,10 @@
 package Controller;
 
+import Model.DataTypes.Category;
 import Model.DataTypes.Record;
 
 import javax.swing.table.AbstractTableModel;
+import java.text.SimpleDateFormat;
 import java.util.List;
 
 /**
@@ -18,9 +20,12 @@ public class MoneyManTableModel extends AbstractTableModel {
     public static final int DESCRIPTION_COLUMN = 4;
     List<Record> records;
     Controller controller;
+    private SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+    private String[] columnNames;
 
-    public MoneyManTableModel(Controller controller) {
+    public MoneyManTableModel(Controller controller, String[] columnNames) {
         this.controller = controller;
+        this.columnNames = columnNames;
         records = controller.getMainTable();
     }
 
@@ -40,11 +45,14 @@ public class MoneyManTableModel extends AbstractTableModel {
             case ID_COLUMN:
                 return records.get(rowIndex).getId();
             case CREATE_TIME_COLUMN:
-                return records.get(rowIndex).getCreateTime();
-            case AMOUNT_COLUMN:
-                return records.get(rowIndex).getAmount();
+                return dateFormat.format(records.get(rowIndex).getCreateTime());
+            case AMOUNT_COLUMN: {
+                long amount = records.get(rowIndex).getAmount();
+                return amount > 0 ? "+" + amount : amount;
+            }
             case CATEGORY_COLUMN:
-                return records.get(rowIndex).getCategory().getName();
+                return records.get(rowIndex).getCategory().getName().equals(Category.NO_CATEGORY) ? " " :
+                        records.get(rowIndex).getCategory().getName();
             case DESCRIPTION_COLUMN:
                 return records.get(rowIndex).getDescription();
         }
@@ -59,4 +67,8 @@ public class MoneyManTableModel extends AbstractTableModel {
         }
     }
 
+    @Override
+    public String getColumnName(int column) {
+        return columnNames[column];
+    }
 }
