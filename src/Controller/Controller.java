@@ -122,7 +122,7 @@ public class Controller {
         String[] result = new String[categories.size()];
         int i = 0;
         for (Category category : categories) {
-            result[i] = category.getName();
+            result[i] = category.getDescription();
             ++i;
         }
         return result;

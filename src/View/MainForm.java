@@ -434,6 +434,9 @@ public class MainForm extends JFrame implements Runnable {
         }
     }
 
+    //todo проверка на вводимые названия категорий
+    //todo проверка на вводимые названия счетов
+    //todo не зачем юзеру вводить название категории. Пусть оно транслитерируется из Описания
     class AccountButtonsListener implements ActionListener {
         @Override
         public void actionPerformed(ActionEvent e) {

@@ -139,7 +139,6 @@ public class DBStore implements DataStore {
         } finally {
             DBHelper.INSTANCE.closeResources(resultSet, preparedStatement);
         }
-        System.out.println(categories.size());
         return categories;
     }
 
@@ -161,7 +160,6 @@ public class DBStore implements DataStore {
             preparedStatement.setString(1, user.getName());
             preparedStatement.setString(2, user.getPasswordHash());
             preparedStatement.executeUpdate();
-//            LOGGER.info("Пользователь {} добавлен", user.getName());
         } catch (SQLException e) {
             LOGGER.error("Юзера {} добавить неполучилось: {}", user.getName(), e.getMessage());
 //            e.printStackTrace();
@@ -199,7 +197,6 @@ public class DBStore implements DataStore {
             resultSet = preparedStatement.getGeneratedKeys();
             resultSet.next();
             accountWithID = new Account(resultSet.getInt(1), account.getDescription());
-            //TODO Когда добавляется счет, необходимо обновить объект счета и добавить ему ID
         } catch (SQLException e) {
             LOGGER.error("Счет за {} {}  для {} добавить неполучилось: {}",
                     account.getID(), account.getDescription(), user.getName(), e.getMessage());
@@ -309,22 +306,45 @@ public class DBStore implements DataStore {
             LOGGER.error("Нельзя редактировать NO_CATEGORY");
             return null;
         }
+        for (Category check : getCategories()) {
+            if (check.getName().equals(category.getName())) {
+                return setCategory(category);
+            }
+        }
+        Category returnCategory = null;
         PreparedStatement preparedStatement = null;
-        ResultSet resultSet = null;
         try {
             preparedStatement = connection.prepareStatement("INSERT INTO categories (name, descr) values (?, ?);");
             preparedStatement.setString(1, category.getName());
-            preparedStatement.setString(1, category.getDescription());
+            preparedStatement.setString(2, category.getDescription());
             preparedStatement.executeUpdate();
-            resultSet = preparedStatement.getGeneratedKeys();
-            resultSet.next();
+            returnCategory = category;
         } catch (SQLException e) {
             LOGGER.error("Категорию {} добавить неполучилось: {}", category.toString(), e.getMessage());
 //            e.printStackTrace();
         } finally {
-            DBHelper.INSTANCE.closeResources(resultSet, preparedStatement);
+            DBHelper.INSTANCE.closeResources(preparedStatement);
         }
-        return category;
+        return returnCategory;
+    }
+
+    private Category setCategory(Category category) {
+        Category returnCategory = null;
+        PreparedStatement preparedStatement = null;
+        try {
+            preparedStatement = connection.prepareStatement("UPDATE categories SET descr = ? WHERE name = ?;");
+            preparedStatement.setString(1, category.getDescription());
+            preparedStatement.setString(2, category.getName());
+            preparedStatement.executeUpdate();
+            returnCategory = category;
+        } catch (SQLException e) {
+            LOGGER.error("Категорию {} изменить неполучилось: {}",
+                    category.getName(), e.getMessage());
+//            e.printStackTrace();
+        } finally {
+            DBHelper.INSTANCE.closeResources(preparedStatement);
+        }
+        return returnCategory;
     }
 
     @Override
@@ -379,31 +399,34 @@ public class DBStore implements DataStore {
         } finally {
             DBHelper.INSTANCE.closeResources(preparedStatement);
         }
-        //TODO а при возвращении записи мне возвращать ее со старым createTime или с новым?
         return new Record(Record.NO_ID, record.getAmount(), record.getDescription(), record.getCategory(), record.getCreateTime());
     }
 
-    //TODO при удалении категории, все записи помеченные ею, должны становится "без категории","
-    //TODO "без категории должно быть нельзя удалить"
     @Override
     public Category removeCategory(Category category) {
         PreparedStatement preparedStatement = null;
+        Category returnCategory = null;
         if (category.getName().equals(Category.NO_CATEGORY)) {
             LOGGER.error("Нельзя удалить NO_CATEGORY");
             return null;
         }
         try {
-            preparedStatement = connection.prepareStatement("DELETE FROM CATEGORIES WHERE NAME = ?;");
+            preparedStatement = connection.prepareStatement("DELETE FROM categories WHERE name = ?;");
             preparedStatement.setString(1, category.getName());
             preparedStatement.execute();
-//            LOGGER.info("Категория {} {} удалена", category.getDescription());
+//            LOGGER.info("Категория {} {} удалена", category.getName(), category.getDescription());
+            preparedStatement = connection.prepareStatement("UPDATE records SET category_name = ? WHERE category_name = ?;");
+            preparedStatement.setString(1, Category.NO_CATEGORY);
+            preparedStatement.setString(2, category.getName());
+            preparedStatement.execute();
+            returnCategory = category;
         } catch (SQLException e) {
             LOGGER.error("{}", e.getMessage());
 //            e.printStackTrace();
         } finally {
             DBHelper.INSTANCE.closeResources(preparedStatement);
         }
-        return category;
+        return returnCategory;
     }
 
     @Override

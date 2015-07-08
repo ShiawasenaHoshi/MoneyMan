@@ -1,6 +1,5 @@
 package Controller;
 
-import Model.DataTypes.Category;
 import Model.DataTypes.Record;
 
 import javax.swing.table.AbstractTableModel;
@@ -51,8 +50,7 @@ public class MoneyManTableModel extends AbstractTableModel {
                 return amount > 0 ? "+" + amount : amount;
             }
             case CATEGORY_COLUMN:
-                return records.get(rowIndex).getCategory().getName().equals(Category.NO_CATEGORY) ? " " :
-                        records.get(rowIndex).getCategory().getName();
+                return records.get(rowIndex).getCategory().getDescription();
             case DESCRIPTION_COLUMN:
                 return records.get(rowIndex).getDescription();
         }

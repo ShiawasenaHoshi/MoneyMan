@@ -185,13 +185,82 @@ public class DBStoreTest {
 
     @Test
     public void testAddCategory() throws Exception {
+        Category newCategory = new Category("NEW_CATEGORY", "Новая категория");
+        Category returnCategory1 = db.addCategory(newCategory);
+        Assert.assertEquals(newCategory.getName(), returnCategory1.getName());
+        Set<Category> categories = db.getCategories();
+        Boolean ok = false;
+        for (Category category : categories) {
+            if (category.getName().equals(newCategory.getName())) {
+                ok = true;
+                break;
+            }
+        }
+        Assert.assertTrue(ok);
+        ok = false;
+
+        Category editedCategory = new Category(newCategory.getName(), "Измененная категория");
+        Category returnCategory2 = db.addCategory(editedCategory);
+        Assert.assertEquals(editedCategory.getName(), returnCategory2.getName());
+        Assert.assertEquals(editedCategory.getDescription(), returnCategory2.getDescription());
+        categories = db.getCategories();
+        for (Category category : categories) {
+            if (category.getName().equals(newCategory.getName())) {
+                if (category.getDescription().equals(editedCategory.getDescription())) {
+                    ok = true;
+                    break;
+                }
+            }
+        }
+        Assert.assertTrue(ok);
+
+        Category noCategory = new Category(Category.NO_CATEGORY, "Неправильная No_category");
+        Category returnNoCategory = db.addCategory(noCategory);
+        Assert.assertNull(returnNoCategory);
+        categories = db.getCategories();
+        ok = true;
+        for (Category category : categories) {
+            if (category.getName().equals(Category.NO_CATEGORY)) {
+                if (category.getDescription().equals(noCategory.getDescription())) {
+                    ok = false;
+                }
+                break;
+            }
+        }
+        Assert.assertTrue(ok);
+
+        Category nullCategory = null;
+        Category returnNullCategory = db.addCategory(nullCategory);
+        Assert.assertNull(returnNullCategory);
 
     }
 
     @Test
     public void testRemoveCategory() throws Exception {
-
+        User user = db.getUser("Bob");
+        Set<Account> accountSet = db.getAccounts(user);
+        Iterator<Account> it = accountSet.iterator();
+        Account account = it.next();
+        Set<Category> categories = db.getCategories();
+        Iterator<Category> categoryIterator = categories.iterator();
+        Category categoryToDelete = null;
+        while (categoryIterator.hasNext()) {
+            categoryToDelete = categoryIterator.next();
+            if (categoryToDelete.getName().equals(Category.NO_CATEGORY)) {
+                continue;
+            } else {
+                break;
+            }
+        }
+        Record noIDRecord = Record.getNewRecordNoID(12312321L, "qwwfqwfqfw", categoryToDelete);
+        Record recordWithIDBeforeDelete = db.addRecord(account, noIDRecord);
+        db.removeCategory(categoryToDelete);
+        categories = db.getCategories();
+        categoryIterator = categories.iterator();
+        while (categoryIterator.hasNext()) {
+            Assert.assertNotEquals(categoryIterator.next().getName(), categoryToDelete.getName());
+        }
+        Record recordWithIdAfterDelete = (Record) db.getDataByID(Record.class, String.valueOf(recordWithIDBeforeDelete.getId()));
+        Assert.assertEquals(recordWithIdAfterDelete.getCategory().getName(), Category.NO_CATEGORY);
     }
-
-
 }
