@@ -51,6 +51,14 @@ public class MainForm extends JFrame implements Runnable {
     private JPanel RecordEditPanel;
     private JPanel ControlPanel;
     private JButton bSaveRecord;
+    private JButton bAddAccount;
+    private JButton bEditAccount;
+    private JButton bRemoveAccount;
+    private JButton bAddCategory;
+    private JButton bEditCategory;
+    private JButton bRemoveCategory;
+    private JTextField tfAccountDescription;
+    private JPanel accountPanel;
     private Controller controller;
     private String[] columnNames = {"ID", "Дата", "Сумма", "Категория", "Описание"};
     private MoneyManTableModel tableModel;
@@ -78,8 +86,9 @@ public class MainForm extends JFrame implements Runnable {
 
     private void init() {
         refreshTabAccount();
+        tfAccountDescription.setVisible(false);
+        tfAccountDescription.addKeyListener(new AccountTextFieldListener());
         tableModel = new MoneyManTableModel(controller, columnNames);
-        //fixme не хватает tableheader
         tRecords.setModel(tableModel);
 //        tRecords.addMouseListener(new TableMouseListener());
         tRecords.getSelectionModel().addListSelectionListener(new TableSelectionChangeListener());
@@ -105,6 +114,11 @@ public class MainForm extends JFrame implements Runnable {
                 saveRecord();
             }
         });
+        AccountButtonsListener accountButtonsListener = new AccountButtonsListener();
+        bAddAccount.addActionListener(accountButtonsListener);
+        bEditAccount.addActionListener(accountButtonsListener);
+        bRemoveAccount.addActionListener(accountButtonsListener);
+
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         addWindowListener(new WindowAdapter() {
             public void windowClosing(WindowEvent e) {
@@ -186,8 +200,9 @@ public class MainForm extends JFrame implements Runnable {
     }
 
     private void refreshTabAccount() {
+        accountPanel.validate();
         String[] accounts = controller.getAccounts();
-        if (accounts.length > 0) {
+        if (accounts.length >= 0) {
             lAccounts.setListData(accounts);
         } else {
             return;
@@ -196,7 +211,6 @@ public class MainForm extends JFrame implements Runnable {
 
     private void refreshTabCategory() {
         String[] categories = controller.getCategories();
-        //todo категорий как минимум одна, поскольку есть NO_CATEGORY
         if (categories.length > 0) {
             lCategories.setListData(categories);
         } else {
@@ -251,7 +265,7 @@ public class MainForm extends JFrame implements Runnable {
         try {
             dateTime = dateFormat.parse(ftfRecordDateTime.getText()).getTime();
         } catch (ParseException e) {
-            JOptionPane.showMessageDialog(this, "Некорректная дата");
+            JOptionPane.showMessageDialog(this, "Некорректная дата", "Ошибка ввода", JOptionPane.ERROR_MESSAGE);
             e.printStackTrace();
             return;
         }
@@ -261,7 +275,7 @@ public class MainForm extends JFrame implements Runnable {
             id = currentRecord.getId();
         }
         if (id == Record.NO_ID && selectedAccountIndex == -1) {
-            JOptionPane.showMessageDialog(this, "Выберите счет, чтобы сохранить в него новую запись");
+            JOptionPane.showMessageDialog(this, "Выберите счет, чтобы сохранить в него новую запись", "Счет не выбран", JOptionPane.WARNING_MESSAGE);
             return;
         }
         if (tpSortByTabs.getSelectedIndex() == SortByTabsChangeListener.ACCOUNT_SORT_TAB && selectedAccountIndex >= 0) {
@@ -395,7 +409,7 @@ public class MainForm extends JFrame implements Runnable {
                         dateTimeFrom = dateFormat.parse(ftfDateFrom.getText()).getTime();
                         dateTimeTo = dateFormat.parse(ftfDateTo.getText()).getTime();
                     } catch (ParseException exception) {
-                        JOptionPane.showMessageDialog(thisFrame, "Некорректная дата");
+                        JOptionPane.showMessageDialog(thisFrame, "Некорректная дата", "Ошибка ввода", JOptionPane.ERROR_MESSAGE);
                         exception.printStackTrace();
                         return;
                     }
@@ -417,6 +431,94 @@ public class MainForm extends JFrame implements Runnable {
             final Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
             c.setBackground(row % 2 == 0 ? Color.LIGHT_GRAY : Color.WHITE);
             return c;
+        }
+    }
+
+    class AccountButtonsListener implements ActionListener {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            if (e.getSource().equals(bAddAccount)) {
+                showTextField();
+            } else if (e.getSource().equals(bEditAccount)) {
+                if (lAccounts.getSelectedIndex() >= 0) {
+                    showTextField();
+                    refreshTextField();
+                }
+            } else if (e.getSource().equals(bRemoveAccount)) {
+                if (lAccounts.getSelectedIndex() >= 0) {
+                    //прежде удаления вызвать мбокс
+                    int response = JOptionPane.showConfirmDialog(null, "Вы уверены, что хотите удалить данный счет",
+                            "Подтверждение удаления счета",
+                            JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+                    if (response == JOptionPane.NO_OPTION) {
+
+                    } else if (response == JOptionPane.YES_OPTION) {
+                        removeAccount();
+                    } else if (response == JOptionPane.CLOSED_OPTION) {
+
+                    }
+                }
+            }
+        }
+
+        private void removeAccount() {
+            try {
+                controller.removeAccount(lAccounts.getSelectedIndex());
+            } catch (Exception e1) {
+                e1.printStackTrace();
+            }
+            refreshTabAccount();
+            refreshTable();
+        }
+
+        private void showTextField() {
+            if (!tfAccountDescription.isVisible()) {
+                tfAccountDescription.setVisible(true);
+                refreshTabAccount();
+            }
+        }
+
+        public void refreshTextField() {
+            tfAccountDescription.setText(controller.getAccount(lAccounts.getSelectedIndex()));
+        }
+    }
+
+    class AccountTextFieldListener implements KeyListener {
+
+        @Override
+        public void keyTyped(KeyEvent e) {
+
+        }
+
+        @Override
+        public void keyPressed(KeyEvent e) {
+
+        }
+
+        @Override
+        public void keyReleased(KeyEvent e) {
+            if (e.getKeyCode() == 10) {
+                String description = tfAccountDescription.getText();
+                if (lAccounts.getSelectedIndex() >= 0) {
+                    try {
+                        controller.editAccount(lAccounts.getSelectedIndex(), tfAccountDescription.getText());
+                        tfAccountDescription.setText("");
+                        tfAccountDescription.setVisible(false);
+                        refreshTabAccount();
+                    } catch (Exception e1) {
+                        e1.printStackTrace();
+                    }
+                } else {
+                    try {
+                        controller.addAccount(description);
+                        tfAccountDescription.setText("");
+                        tfAccountDescription.setVisible(false);
+                        refreshTabAccount();
+                    } catch (Exception e1) {
+                        e1.printStackTrace();
+                    }
+                }
+            }
         }
     }
 }

@@ -2,10 +2,7 @@ package Controller;
 
 import Model.Base.DBStore;
 import Model.Base.DataStore;
-import Model.DataTypes.Account;
-import Model.DataTypes.Category;
-import Model.DataTypes.Record;
-import Model.DataTypes.User;
+import Model.DataTypes.*;
 import Model.Tools.HashMaker;
 import View.LoginDialog;
 import View.MainForm;
@@ -106,12 +103,26 @@ public class Controller {
         calculateMinMax();
     }
 
+    public String getAccount(int index) {
+        return accounts.get(index).getDescription();
+    }
+
     public String[] getAccounts() {
         String[] result = new String[accounts.size()];
         int i = 0;
         for (Account account : accounts) {
             long balance = getBalance(dataStore.getRecords(account));
-            result[i] = String.format("%s   %s", account.getID(), (balance > 0) ? "+" + balance : balance);
+            result[i] = String.format("%s   %s", account.getDescription(), (balance > 0) ? "+" + balance : balance);
+            ++i;
+        }
+        return result;
+    }
+
+    public String[] getCategories() {
+        String[] result = new String[categories.size()];
+        int i = 0;
+        for (Category category : categories) {
+            result[i] = category.getName();
             ++i;
         }
         return result;
@@ -122,22 +133,38 @@ public class Controller {
     }
 
     public void fillTableBy(SelectParams selectParams) {
-        //fixme нужна проверка на существовании категории и аккаунта, что в params
         lastSelectParams = selectParams;
+        if (selectParams == null) {
+            selectParams = new SelectParams().setAccountIndex(0);
+        }
         mainTable.clear();
         if (selectParams.getAccountIndex() >= 0) {
-            mainTable.addAll(dataStore.getRecords(accounts.get(selectParams.getAccountIndex())));
-        } else {
-            for (Account account : dataStore.getAccounts(loggedUser)) {
-                for (Record record : dataStore.getRecords(account)) {
-                    mainTable.add(record);
+            if (selectParams.getAccountIndex() < accounts.size()) {
+                mainTable.addAll(dataStore.getRecords(accounts.get(selectParams.getAccountIndex())));
+            } else {
+                Set<Account> accounts = dataStore.getAccounts(loggedUser);
+                if (accounts.size() == 0) {
+                    return;
+                }
+                for (Account account : accounts) {
+                    for (Record record : dataStore.getRecords(account)) {
+                        mainTable.add(record);
+                    }
                 }
             }
         }
         if (selectParams.getCategoryIndex() >= 0) {
-            for (int i = mainTable.size() - 1; i >= 0; i--) {
-                if (!mainTable.get(i).getCategory().equals(categories.get(selectParams.getCategoryIndex()))) {
-                    mainTable.remove(i);
+            if (selectParams.getCategoryIndex() < categories.size()) {
+                for (int i = mainTable.size() - 1; i >= 0; i--) {
+                    if (!mainTable.get(i).getCategory().equals(categories.get(selectParams.getCategoryIndex()))) {
+                        mainTable.remove(i);
+                    }
+                }
+            } else {
+                for (int i = mainTable.size() - 1; i >= 0; i--) {
+                    if (!mainTable.get(i).getCategory().equals(categories.get(0))) {
+                        mainTable.remove(i);
+                    }
                 }
             }
         }
@@ -167,16 +194,6 @@ public class Controller {
         Collections.sort(records, sorter);
     }
 
-    public String[] getCategories() {
-        String[] result = new String[categories.size()];
-        int i = 0;
-        for (Category category : categories) {
-            result[i] = category.getName();
-            ++i;
-        }
-        return result;
-    }
-
     private void updateAccountsList() {
         accounts.clear();
         accounts.addAll(dataStore.getAccounts(loggedUser));
@@ -185,6 +202,7 @@ public class Controller {
     private void updateCategoriesList() {
         categories.clear();
         categories.addAll(dataStore.getCategories());
+        //todo добавить сортировку по алфавиту
     }
 
     public long getSpend() {
@@ -280,15 +298,54 @@ public class Controller {
         }
     }
 
-    public boolean removeCategory(int categoryIndex) {
+    public void addAccount(String description) throws Exception {
+        Account account = dataStore.addAccount(loggedUser, new Account(DataType.NO_ID, description));
+        if (account == null) {
+            throw new Exception("Аккаунт не создан");
+        }
+        updateAccountsList();
+    }
+
+    public void editAccount(int accountIndex, String description) throws Exception {
+        if (accountIndex >= 0 && accountIndex < accounts.size()) {
+            Account account = dataStore.addAccount(loggedUser, new Account(accounts.get(accountIndex).getID(), description));
+            if (account == null) {
+                throw new Exception("Аккаунт не создан");
+            }
+            updateAccountsList();
+        }
+    }
+
+    public void removeAccount(int accountIndex) throws Exception {
+        if (accountIndex >= 0 && accountIndex < accounts.size()) {
+            Account account = dataStore.removeAccount(loggedUser, accounts.get(accountIndex));
+            if (account == null) {
+                throw new Exception("Аккаунт не удален");
+            }
+            Set<Record> records = dataStore.getRecords(account);
+            for (Record record : records) {
+                dataStore.removeRecord(account, record);
+            }
+            updateAccountsList();
+        }
+    }
+
+    public void addCategory(String name, String description) {
+
+    }
+
+    public void editCategory(int categoryIndex) {
+
+    }
+
+    public void removeCategory(int categoryIndex) {
         //todo не забудь, что удалить NO_CATEGORY нельзя
-        return false;
+
     }
 
     public void calculateMinMaxAmountsAfterChanges(Record editedRecord) {
         if (editedRecord.getAmount() >= maxAmount || editedRecord.getAmount() <= minAmount) {
             calculateMinMax();
-            System.out.println("Итого:" + minAmount + " " + maxAmount);
         }
     }
 

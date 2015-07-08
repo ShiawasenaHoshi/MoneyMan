@@ -82,10 +82,14 @@ public class DBStoreTest {
         Account account = Account.getNewAccountNoID("Дома" + Math.random());
         Account nullAccount = null;
         User unknownUser = new User("Барсук", HashMaker.getHash("барсук"));
-        Assert.assertNotNull(db.addAccount(user, account));
+        Account account1 = db.addAccount(user, account);
+        Assert.assertNotNull(account1);
         Assert.assertNull(db.addAccount(nullUser, account));
         Assert.assertNull(db.addAccount(user, nullAccount));
         Assert.assertNull(db.addAccount(unknownUser, account));
+        Account modifiedAcc = db.addAccount(user, new Account(account1.getID(), "Новые дома"));
+        Assert.assertEquals(account1.getID(), modifiedAcc.getID());
+        Assert.assertNotEquals(account1.getDescription(), modifiedAcc.getDescription());
     }
 
     @Test

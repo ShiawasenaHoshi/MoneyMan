@@ -186,7 +186,9 @@ public class DBStore implements DataStore {
             LOGGER.error("В базе нет пользователя {}! Добавьте вначале его", user.getName());
             return null;
         }
-
+        if (account.getID() != Account.NO_ID) {
+            return setAccount(account);
+        }
         PreparedStatement preparedStatement = null;
         ResultSet resultSet = null;
         try {
@@ -201,6 +203,29 @@ public class DBStore implements DataStore {
         } catch (SQLException e) {
             LOGGER.error("Счет за {} {}  для {} добавить неполучилось: {}",
                     account.getID(), account.getDescription(), user.getName(), e.getMessage());
+//            e.printStackTrace();
+        } finally {
+            DBHelper.INSTANCE.closeResources(resultSet, preparedStatement);
+        }
+        return accountWithID;
+    }
+
+    private Account setAccount(Account account) {
+        Account accountWithID = null;
+        PreparedStatement preparedStatement = null;
+        ResultSet resultSet = null;
+        try {
+            preparedStatement = connection.prepareStatement("UPDATE Accounts SET descr = ? WHERE id = ?;");
+            preparedStatement.setString(1, account.getDescription());
+            preparedStatement.setInt(2, account.getID());
+            preparedStatement.executeUpdate();
+            resultSet = preparedStatement.getGeneratedKeys();
+            resultSet.next();
+            accountWithID = new Account(resultSet.getInt(1), account.getDescription());
+            //TODO Когда добавляется счет, необходимо обновить объект счета и добавить ему ID
+        } catch (SQLException e) {
+            LOGGER.error("Счет за {} {}  изменить не получилось: {}",
+                    account.getID(), account.getDescription(), e.getMessage());
 //            e.printStackTrace();
         } finally {
             DBHelper.INSTANCE.closeResources(resultSet, preparedStatement);
