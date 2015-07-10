@@ -10,12 +10,10 @@ import View.MainForm;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.text.Collator;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
-/**
- * Created by vasily on 09.06.15.
- */
 public class Controller {
     final private static Logger LOGGER = LoggerFactory.getLogger(DataStore.class);
     static SimpleDateFormat simpleDateFormat;
@@ -23,6 +21,8 @@ public class Controller {
     DataStore dataStore;
     volatile LoginDialog loginDialog = null;
     volatile MainForm mainForm = null;
+    Locale locale = null;
+    Collator currentCollator = null;
     private List<Record> mainTable;
     private List<Account> accounts;
     private List<Category> categories;
@@ -32,6 +32,20 @@ public class Controller {
     private long minDateTime = 0;
     private long maxDateTime = 0;
     private Comparator<Record> sorter;
+
+    {
+        locale = new Locale("ru_RU");
+        currentCollator = Collator.getInstance(locale);
+        sorter = (o1, o2) -> {
+            if (o1.getCreateTime() < o2.getCreateTime()) {
+                return -1;
+            }
+            if (o1.getCreateTime() > o2.getCreateTime()) {
+                return 1;
+            }
+            return 0;
+        };
+    }
 
     public Controller() {
         dataStore = new DBStore();
@@ -79,20 +93,8 @@ public class Controller {
     }
 
     public void loggedIn(String userName) {
-        sorter = new Comparator<Record>() {
-            @Override
-            public int compare(Record o1, Record o2) {
-                if (o1.getCreateTime() < o2.getCreateTime()) {
-                    return -1;
-                }
-                if (o1.getCreateTime() > o2.getCreateTime()) {
-                    return 1;
-                }
-                return 0;
-            }
-        };
-        loggedUser = dataStore.getUser(userName);
 
+        loggedUser = dataStore.getUser(userName);
         accounts = new ArrayList<>();
         updateAccountsList();
         categories = new ArrayList<>();
@@ -153,9 +155,7 @@ public class Controller {
                 return;
             }
             for (Account account : accounts) {
-                for (Record record : dataStore.getRecords(account)) {
-                    mainTable.add(record);
-                }
+                mainTable.addAll(dataStore.getRecords(account));
             }
         }
         if (selectParams.getCategoryIndex() >= 0) {
@@ -207,7 +207,7 @@ public class Controller {
     private void updateCategoriesList() {
         categories.clear();
         categories.addAll(dataStore.getCategories());
-        //todo добавить сортировку по алфавиту
+        Collections.sort(categories, (o1, o2) -> currentCollator.compare(o1.getDescription().toLowerCase(), o2.getDescription().toLowerCase()));
     }
 
     public long getSpend() {

@@ -39,4 +39,12 @@ public class Category extends DataType {
         result = 31 * result + description.hashCode();
         return result;
     }
+
+    @Override
+    public String toString() {
+        return "Category{" +
+                "description='" + description + '\'' +
+                ", name='" + name + '\'' +
+                '}';
+    }
 }
