@@ -10,11 +10,13 @@ import View.MainForm;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.naming.OperationNotSupportedException;
 import java.text.Collator;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
 public class Controller {
+    public static final String NO_CATEGORY_DESCRIPTION = "Без категории";
     final private static Logger LOGGER = LoggerFactory.getLogger(DataStore.class);
     static SimpleDateFormat simpleDateFormat;
     public User loggedUser = null;
@@ -31,12 +33,13 @@ public class Controller {
     private long maxAmount = 0;
     private long minDateTime = 0;
     private long maxDateTime = 0;
-    private Comparator<Record> sorter;
+    private Comparator<Record> timeComparator;
 
     {
         locale = new Locale("ru_RU");
         currentCollator = Collator.getInstance(locale);
-        sorter = (o1, o2) -> {
+        currentCollator.setStrength(Collator.PRIMARY);
+        timeComparator = (o1, o2) -> {
             if (o1.getCreateTime() < o2.getCreateTime()) {
                 return -1;
             }
@@ -121,7 +124,11 @@ public class Controller {
         return result;
     }
 
-    public String getCategory(int index) {
+    public String getCategory(int index) throws OperationNotSupportedException {
+        Category result = categories.get(index);
+        if (result.getName().equals(Category.NO_CATEGORY)) {
+            throw new OperationNotSupportedException();
+        }
         return categories.get(index).getDescription();
     }
 
@@ -129,7 +136,7 @@ public class Controller {
         String[] result = new String[categories.size()];
         int i = 0;
         for (Category category : categories) {
-            result[i] = category.getDescription().equals("") ? "Без категории" : category.getDescription();
+            result[i] = category.getName().equals(Category.NO_CATEGORY) ? NO_CATEGORY_DESCRIPTION : category.getDescription();
             ++i;
         }
         return result;
@@ -191,11 +198,11 @@ public class Controller {
     }
 
     public void sortBy() {
-        sortBy(mainTable, sorter);
+        sortBy(mainTable, timeComparator);
     }
 
     public void sortBy(List<Record> records, Comparator<Record> sorter) {
-        this.sorter = sorter;
+        this.timeComparator = sorter;
         Collections.sort(records, sorter);
     }
 
@@ -207,7 +214,10 @@ public class Controller {
     private void updateCategoriesList() {
         categories.clear();
         categories.addAll(dataStore.getCategories());
-        Collections.sort(categories, (o1, o2) -> currentCollator.compare(o1.getDescription().toLowerCase(), o2.getDescription().toLowerCase()));
+
+//        Collections.sort(categories, (o1, o2) -> currentCollator.compare(o1.getDescription().toLowerCase(), o2.getDescription().toLowerCase()));
+        Collections.sort(categories, (o1, o2) -> currentCollator.compare(o1.getDescription(), o2.getDescription()));
+        //fixme все равно сортировка не правильная. Английский впереди и в обратном порядке
     }
 
     public long getSpend() {
@@ -236,10 +246,6 @@ public class Controller {
             }
         }
         return result;
-    }
-
-    public long getBalance() {
-        return getBalance(mainTable);
     }
 
     private long getBalance(Collection<Record> records) {
@@ -348,7 +354,7 @@ public class Controller {
             return;
         }
         //fixme
-        Category categoryToEdit = categories.get(categoryIndex);
+        Category categoryToEdit = new Category(categories.get(categoryIndex).getName(), description);
         if (categoryToEdit.getName().equals(Category.NO_CATEGORY)) {
             throw new Exception("Редактировать NO_CATEGORY нельзя");
         }
@@ -379,9 +385,7 @@ public class Controller {
     public void calculateMinMax() {
         List<Record> allRecords = new ArrayList<>();
         for (Account account : dataStore.getAccounts(loggedUser)) {
-            for (Record record : dataStore.getRecords(account)) {
-                allRecords.add(record);
-            }
+            allRecords.addAll(dataStore.getRecords(account));
         }
         calculateMinMax(allRecords);
     }
