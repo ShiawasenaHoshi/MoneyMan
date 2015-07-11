@@ -11,22 +11,22 @@ public class Record extends DataType {
     private long amount;
     private String description;
     private Category category;
-    private long createTime;
+    private long dateDime;
 
     public Record(int id, long amount, String description, Category category, long createTime) {
         this.id = id;
         this.amount = amount;
         this.description = description;
         this.category = category;
-        this.createTime = createTime;
+        this.dateDime = createTime;
     }
 
     public static Record getNewRecordNoID(long amount, String description, Category category) {
         return new Record(NO_ID, amount, description, category, System.currentTimeMillis());
     }
 
-    public long getCreateTime() {
-        return createTime;
+    public long getDateTime() {
+        return dateDime;
     }
 
     public long getAmount() {
@@ -52,7 +52,7 @@ public class Record extends DataType {
         }
         return "Model.DataTypes.Record{" +
                 "amount=" + amount +
-                ", createTime=" + simpleDateFormat.format(createTime) +
+                ", dateDime=" + simpleDateFormat.format(dateDime) +
                 ", category=" + category.toString() +
                 '}';
     }
@@ -65,7 +65,7 @@ public class Record extends DataType {
         Record record = (Record) o;
 
         if (amount != record.amount) return false;
-        if (createTime != record.createTime) return false;
+        if (dateDime != record.dateDime) return false;
         if (!description.equals(record.description)) return false;
         return category.equals(record.category);
 
@@ -76,7 +76,7 @@ public class Record extends DataType {
         int result = (int) (amount ^ (amount >>> 32));
         result = 31 * result + description.hashCode();
         result = 31 * result + category.hashCode();
-        result = 31 * result + (int) (createTime ^ (createTime >>> 32));
+        result = 31 * result + (int) (dateDime ^ (dateDime >>> 32));
         return result;
     }
 }

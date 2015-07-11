@@ -19,21 +19,8 @@ public class Account extends DataType {
         records = new HashSet<>();
     }
 
-    public static Account getNewAccountNoID(String description) {
-        return new Account(NO_ID, description);
-    }
-
-    public static Account getNewAccount(User user, Account account) {
-        return getNewAccount(user, account);
-    }
-
     public Set<Record> getRecords() {
         return records;
-    }
-
-    public Account addRecord(Record record) {
-        records.add(record);
-        return this;
     }
 
     public Account addRecords(Collection<? extends Record> collection) {
@@ -45,18 +32,8 @@ public class Account extends DataType {
         return description;
     }
 
-    public Account setDescription(String description) {
-        this.description = description;
-        return this;
-    }
-
     public int getID() {
         return id;
-    }
-
-    public void refreshRecords(Collection<? extends Record> collection) {
-        records = new HashSet<>();
-        addRecords(collection);
     }
 
     @Override

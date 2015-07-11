@@ -4,24 +4,27 @@ import Model.Base.DBStore;
 import Model.Base.DataStore;
 import Model.DataTypes.*;
 import Model.Tools.HashMaker;
+import Model.Tools.Transliterator;
 import View.LoginDialog;
 import View.MainForm;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.naming.OperationNotSupportedException;
+import java.text.Collator;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
-/**
- * Created by vasily on 09.06.15.
- */
 public class Controller {
+    public static final String NO_CATEGORY_DESCRIPTION = "Без категории";
     final private static Logger LOGGER = LoggerFactory.getLogger(DataStore.class);
     static SimpleDateFormat simpleDateFormat;
     public User loggedUser = null;
     DataStore dataStore;
     volatile LoginDialog loginDialog = null;
     volatile MainForm mainForm = null;
+    Locale locale = null;
+    Collator currentCollator = null;
     private List<Record> mainTable;
     private List<Account> accounts;
     private List<Category> categories;
@@ -30,7 +33,22 @@ public class Controller {
     private long maxAmount = 0;
     private long minDateTime = 0;
     private long maxDateTime = 0;
-    private Comparator<Record> sorter;
+    private Comparator<Record> timeComparator;
+
+    {
+        locale = new Locale("ru_RU");
+        currentCollator = Collator.getInstance(locale);
+        currentCollator.setStrength(Collator.PRIMARY);
+        timeComparator = (o1, o2) -> {
+            if (o1.getCreateTime() < o2.getCreateTime()) {
+                return -1;
+            }
+            if (o1.getCreateTime() > o2.getCreateTime()) {
+                return 1;
+            }
+            return 0;
+        };
+    }
 
     public Controller() {
         dataStore = new DBStore();
@@ -78,20 +96,8 @@ public class Controller {
     }
 
     public void loggedIn(String userName) {
-        sorter = new Comparator<Record>() {
-            @Override
-            public int compare(Record o1, Record o2) {
-                if (o1.getCreateTime() < o2.getCreateTime()) {
-                    return -1;
-                }
-                if (o1.getCreateTime() > o2.getCreateTime()) {
-                    return 1;
-                }
-                return 0;
-            }
-        };
-        loggedUser = dataStore.getUser(userName);
 
+        loggedUser = dataStore.getUser(userName);
         accounts = new ArrayList<>();
         updateAccountsList();
         categories = new ArrayList<>();
@@ -118,19 +124,19 @@ public class Controller {
         return result;
     }
 
-    public String[] getCategory(int index){
-        String[] categoryInfo = new String[2];
-        Category category = categories.get(index);
-        categoryInfo[0] = category.getName();
-        categoryInfo[1] = category.getDescription();
-        return categoryInfo;
+    public String getCategory(int index) throws OperationNotSupportedException {
+        Category result = categories.get(index);
+        if (result.getName().equals(Category.NO_CATEGORY)) {
+            throw new OperationNotSupportedException();
+        }
+        return categories.get(index).getDescription();
     }
 
     public String[] getCategories() {
         String[] result = new String[categories.size()];
         int i = 0;
         for (Category category : categories) {
-            result[i] = category.getDescription();
+            result[i] = category.getName().equals(Category.NO_CATEGORY) ? NO_CATEGORY_DESCRIPTION : category.getDescription();
             ++i;
         }
         return result;
@@ -149,22 +155,20 @@ public class Controller {
         if (selectParams.getAccountIndex() >= 0) {
             if (selectParams.getAccountIndex() < accounts.size()) {
                 mainTable.addAll(dataStore.getRecords(accounts.get(selectParams.getAccountIndex())));
-            } else {
-                Set<Account> accounts = dataStore.getAccounts(loggedUser);
-                if (accounts.size() == 0) {
-                    return;
-                }
-                for (Account account : accounts) {
-                    for (Record record : dataStore.getRecords(account)) {
-                        mainTable.add(record);
-                    }
-                }
+            }
+        } else {
+            Set<Account> accounts = dataStore.getAccounts(loggedUser);
+            if (accounts.size() == 0) {
+                return;
+            }
+            for (Account account : accounts) {
+                mainTable.addAll(dataStore.getRecords(account));
             }
         }
         if (selectParams.getCategoryIndex() >= 0) {
             if (selectParams.getCategoryIndex() < categories.size()) {
                 for (int i = mainTable.size() - 1; i >= 0; i--) {
-                    if (!mainTable.get(i).getCategory().equals(categories.get(selectParams.getCategoryIndex()))) {
+                    if (!mainTable.get(i).getCategory().getName().equals(categories.get(selectParams.getCategoryIndex()).getName())) {
                         mainTable.remove(i);
                     }
                 }
@@ -194,11 +198,11 @@ public class Controller {
     }
 
     public void sortBy() {
-        sortBy(mainTable, sorter);
+        sortBy(mainTable, timeComparator);
     }
 
     public void sortBy(List<Record> records, Comparator<Record> sorter) {
-        this.sorter = sorter;
+        this.timeComparator = sorter;
         Collections.sort(records, sorter);
     }
 
@@ -210,7 +214,10 @@ public class Controller {
     private void updateCategoriesList() {
         categories.clear();
         categories.addAll(dataStore.getCategories());
-        //todo добавить сортировку по алфавиту
+
+//        Collections.sort(categories, (o1, o2) -> currentCollator.compare(o1.getDescription().toLowerCase(), o2.getDescription().toLowerCase()));
+        Collections.sort(categories, (o1, o2) -> currentCollator.compare(o1.getDescription(), o2.getDescription()));
+        //fixme все равно сортировка не правильная. Английский впереди и в обратном порядке
     }
 
     public long getSpend() {
@@ -239,10 +246,6 @@ public class Controller {
             }
         }
         return result;
-    }
-
-    public long getBalance() {
-        return getBalance(mainTable);
     }
 
     private long getBalance(Collection<Record> records) {
@@ -279,11 +282,11 @@ public class Controller {
         fillTableBy(lastSelectParams);
     }
 
-    public void saveEditedRecord(int id, long amount, String description, int categoryIndex, long createTime) {
+    public void saveEditedRecord(int id, long amount, String description, int categoryIndex, long createTime) throws Exception {
         Account accountTo = null;
         Record record = new Record(id, amount, description, categories.get(categoryIndex), createTime);
         if (record.getId() == Record.NO_ID) {
-            throw new NullPointerException("У сохраняемой записи нет идентификатора и она не привязана к счету");
+            throw new Exception("У сохраняемой записи нет идентификатора и она не привязана к счету");
         } else {
             for (Account account : dataStore.getAccounts(loggedUser)) {
                 for (Record existingRecord : account.getRecords()) {
@@ -298,7 +301,7 @@ public class Controller {
             }
         }
         if (accountTo == null) {
-            throw new NullPointerException("Нет записи с таким ID в базе");
+            throw new Exception("Нет записи с таким ID в базе");
         } else {
             dataStore.addRecord(accountTo, record);
             calculateMinMaxAmountsAfterChanges(record);
@@ -338,8 +341,8 @@ public class Controller {
         }
     }
 
-    public void addCategory(String name, String description) throws Exception {
-        Category categoryToAdd = new Category(name, description);
+    public void addCategory(String description) throws Exception {
+        Category categoryToAdd = new Category(Transliterator.transliterate(description), description);
         if (dataStore.addCategory(categoryToAdd) == null) {
             throw new Exception("Категория не добавлена");
         }
@@ -351,7 +354,7 @@ public class Controller {
             return;
         }
         //fixme
-        Category categoryToEdit = categories.get(categoryIndex);
+        Category categoryToEdit = new Category(categories.get(categoryIndex).getName(), description);
         if (categoryToEdit.getName().equals(Category.NO_CATEGORY)) {
             throw new Exception("Редактировать NO_CATEGORY нельзя");
         }
@@ -382,9 +385,7 @@ public class Controller {
     public void calculateMinMax() {
         List<Record> allRecords = new ArrayList<>();
         for (Account account : dataStore.getAccounts(loggedUser)) {
-            for (Record record : dataStore.getRecords(account)) {
-                allRecords.add(record);
-            }
+            allRecords.addAll(dataStore.getRecords(account));
         }
         calculateMinMax(allRecords);
     }

@@ -20,6 +20,7 @@ public class Controller {
     final private static Logger LOGGER = LoggerFactory.getLogger(DataStore.class);
     static SimpleDateFormat simpleDateFormat;
     public User loggedUser = null;
+    public CurrentRecord currentRecord;
     DataStore dataStore;
     volatile LoginDialog loginDialog = null;
     volatile MainForm mainForm = null;
@@ -40,10 +41,10 @@ public class Controller {
         currentCollator = Collator.getInstance(locale);
         currentCollator.setStrength(Collator.PRIMARY);
         timeComparator = (o1, o2) -> {
-            if (o1.getCreateTime() < o2.getCreateTime()) {
+            if (o1.getDateTime() < o2.getDateTime()) {
                 return -1;
             }
-            if (o1.getCreateTime() > o2.getCreateTime()) {
+            if (o1.getDateTime() > o2.getDateTime()) {
                 return 1;
             }
             return 0;
@@ -67,6 +68,7 @@ public class Controller {
             loginDialogThread.start();
         }
     }
+
 
     public List<Record> getMainTable() {
         return mainTable;
@@ -96,7 +98,7 @@ public class Controller {
     }
 
     public void loggedIn(String userName) {
-
+        currentRecord = new CurrentRecord();
         loggedUser = dataStore.getUser(userName);
         accounts = new ArrayList<>();
         updateAccountsList();
@@ -189,7 +191,7 @@ public class Controller {
         }
         if (selectParams.isDateTimeRestricted()) {
             for (int i = mainTable.size() - 1; i >= 0; i--) {
-                if (mainTable.get(i).getCreateTime() < selectParams.getDateTimeFrom() || mainTable.get(i).getAmount() > selectParams.getDateTimeTo()) {
+                if (mainTable.get(i).getDateTime() < selectParams.getDateTimeFrom() || mainTable.get(i).getAmount() > selectParams.getDateTimeTo()) {
                     mainTable.remove(i);
                 }
             }
@@ -214,10 +216,7 @@ public class Controller {
     private void updateCategoriesList() {
         categories.clear();
         categories.addAll(dataStore.getCategories());
-
-//        Collections.sort(categories, (o1, o2) -> currentCollator.compare(o1.getDescription().toLowerCase(), o2.getDescription().toLowerCase()));
         Collections.sort(categories, (o1, o2) -> currentCollator.compare(o1.getDescription(), o2.getDescription()));
-        //fixme все равно сортировка не правильная. Английский впереди и в обратном порядке
     }
 
     public long getSpend() {
@@ -355,7 +354,7 @@ public class Controller {
         }
         //fixme
         Category categoryToEdit = new Category(categories.get(categoryIndex).getName(), description);
-        if (categoryToEdit.getName().equals(Category.NO_CATEGORY)) {
+        if (categoryToEdit.getName().equalsIgnoreCase(Category.NO_CATEGORY)) {
             throw new Exception("Редактировать NO_CATEGORY нельзя");
         }
         dataStore.addCategory(categoryToEdit);
@@ -368,7 +367,7 @@ public class Controller {
             return;
         }
         Category categoryToRemove = categories.get(categoryIndex);
-        if (categoryToRemove.getName().equals(Category.NO_CATEGORY)) {
+        if (categoryToRemove.getName().equalsIgnoreCase(Category.NO_CATEGORY)) {
             throw new Exception("Удалить NO_CATEGORY нельзя");
         }
         dataStore.removeCategory(categoryToRemove);
@@ -399,12 +398,12 @@ public class Controller {
                 maxAmount = record.getAmount();
             }
             if (minDateTime == 0) {
-                minDateTime = record.getCreateTime();
+                minDateTime = record.getDateTime();
             }
-            if (record.getCreateTime() < minDateTime) {
-                minDateTime = record.getCreateTime();
-            } else if (record.getCreateTime() > maxDateTime) {
-                maxDateTime = record.getCreateTime();
+            if (record.getDateTime() < minDateTime) {
+                minDateTime = record.getDateTime();
+            } else if (record.getDateTime() > maxDateTime) {
+                maxDateTime = record.getDateTime();
             }
         }
     }
@@ -423,5 +422,40 @@ public class Controller {
 
     public long getMinDateTime() {
         return minDateTime;
+    }
+
+    public class CurrentRecord {
+        public static final int NO_ID = Record.NO_ID;
+        Record currentRecord;
+
+        public void setCurrentRecord(int index) {
+            if (mainTable.size() > 0 && index >= 0 && index < mainTable.size()) {
+                currentRecord = mainTable.get(index);
+            }
+        }
+
+        public int getID() {
+            return currentRecord.getId();
+        }
+
+        public long getDateTime() {
+            return currentRecord.getDateTime();
+        }
+
+        public long getAmount() {
+            return currentRecord.getAmount();
+        }
+
+        public String getCategoryName() {
+            return currentRecord.getCategory().getName();
+        }
+
+        public String getCategoryDescription() {
+            return currentRecord.getCategory().getDescription();
+        }
+
+        public String getDescription() {
+            return currentRecord.getDescription();
+        }
     }
 }

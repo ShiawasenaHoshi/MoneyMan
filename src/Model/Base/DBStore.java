@@ -251,13 +251,13 @@ public class DBStore implements DataStore {
                     "(amount, descr, create_time, category_name, account_id) values (?, ?, ?, ?, ?);");
             preparedStatement.setLong(1, record.getAmount());
             preparedStatement.setString(2, record.getDescription());
-            preparedStatement.setLong(3, record.getCreateTime());
+            preparedStatement.setLong(3, record.getDateTime());
             preparedStatement.setString(4, record.getCategory().getName());
             preparedStatement.setInt(5, account.getID());
             preparedStatement.executeUpdate();
             resultSet = preparedStatement.getGeneratedKeys();
             resultSet.next();
-            recordWithID = new Record(resultSet.getInt(1), record.getAmount(), record.getDescription(), record.getCategory(), record.getCreateTime());
+            recordWithID = new Record(resultSet.getInt(1), record.getAmount(), record.getDescription(), record.getCategory(), record.getDateTime());
         } catch (SQLException e) {
             LOGGER.error("Запись {} в счет {} добавить неполучилось: {}",
                     record.toString(), account.getDescription(), e.getMessage());
@@ -278,14 +278,14 @@ public class DBStore implements DataStore {
                     "WHERE id = ?;");
             preparedStatement.setLong(1, record.getAmount());
             preparedStatement.setString(2, record.getDescription());
-            preparedStatement.setLong(3, record.getCreateTime());
+            preparedStatement.setLong(3, record.getDateTime());
             preparedStatement.setString(4, record.getCategory().getName());
             preparedStatement.setInt(5, account.getID());
             preparedStatement.setInt(6, record.getId());
             preparedStatement.executeUpdate();
             resultSet = preparedStatement.getGeneratedKeys();
             resultSet.next();
-            returnRecord = new Record(resultSet.getInt(1), record.getAmount(), record.getDescription(), record.getCategory(), record.getCreateTime());
+            returnRecord = new Record(resultSet.getInt(1), record.getAmount(), record.getDescription(), record.getCategory(), record.getDateTime());
         } catch (SQLException e) {
             LOGGER.error("Запись {} в счет {} добавить неполучилось: {}",
                     record.toString(), account.getDescription(), e.getMessage());
@@ -399,7 +399,7 @@ public class DBStore implements DataStore {
         } finally {
             DBHelper.INSTANCE.closeResources(preparedStatement);
         }
-        return new Record(Record.NO_ID, record.getAmount(), record.getDescription(), record.getCategory(), record.getCreateTime());
+        return new Record(Record.NO_ID, record.getAmount(), record.getDescription(), record.getCategory(), record.getDateTime());
     }
 
     @Override

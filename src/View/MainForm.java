@@ -3,7 +3,6 @@ package View;
 import Controller.Controller;
 import Controller.MoneyManTableModel;
 import Controller.SelectParams;
-import Model.DataTypes.Record;
 
 import javax.naming.OperationNotSupportedException;
 import javax.swing.*;
@@ -22,9 +21,6 @@ import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 
-/**
- * Created by vasily on 03.07.15.
- */
 public class MainForm extends JFrame implements Runnable {
     public static final String NEW_RECORD = "Новая запись";
     public static final String RECORD_NUMBER_TEXT = "Запись №";
@@ -34,15 +30,15 @@ public class MainForm extends JFrame implements Runnable {
     private JPanel rootPanel;
     private JTable tRecords;
     private JTabbedPane tpSortByTabs;
-    private JList lCategories;
-    private JList lAccounts;
+    private JList<String> lCategories;
+    private JList<String> lAccounts;
     private JFormattedTextField ftfDateTo;
     private JFormattedTextField ftfDateFrom;
     private JFormattedTextField ftfAmountFrom;
     private JFormattedTextField ftfAmountTo;
     private JFormattedTextField ftfRecordDateTime;
     private JFormattedTextField ftfRecordAmount;
-    private JComboBox cbRecordCategory;
+    private JComboBox<String> cbRecordCategory;
     private JTextArea taRecordDescription;
     private JLabel lRecordID;
     private JButton bCreateRecord;
@@ -67,13 +63,16 @@ public class MainForm extends JFrame implements Runnable {
     private JPanel categoryPanel;
     private JTextField tfCategoryDescription;
     private Controller controller;
+    //todo сделать возможность сокрытия колонок
     private String[] columnNames = {"ID", "Дата", "Сумма", "Категория", "Описание"};
     private MoneyManTableModel tableModel;
     private SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
-    private Record currentRecord;
     private Frame thisFrame;
     private MessageBoxes messageBoxes;
+    private int currentAccountIndex;
+    private int currentCategoryIndex;
 
+    //fixme А ты не пробовал использовать Java стиль "javax.swing.plaf.metal.MetalLookAndFeel"? Он на всех ОС по идее должен отображаться одинаково.
     public MainForm(Controller controller) {
         super("Главная форма");
         this.controller = controller;
@@ -101,14 +100,15 @@ public class MainForm extends JFrame implements Runnable {
         tRecords.setDefaultRenderer(Object.class, new TableRenderer());
 
         //Инициализация кнопок редактирования записи
-        bCreateRecord.addActionListener(e -> createNewRecord());
-        bRemoveRecord.addActionListener(e -> removeRecord());
-        bSaveRecord.addActionListener(e -> saveRecord());
+        EditRecordButtonsListener editRecordButtonsListener = new EditRecordButtonsListener();
+        bCreateRecord.addActionListener(editRecordButtonsListener);
+        bRemoveRecord.addActionListener(editRecordButtonsListener);
+        bSaveRecord.addActionListener(editRecordButtonsListener);
 
         //Инициализация табов
         tpSortByTabs.addChangeListener(new SortByTabsChangeListener());
         //Инициализация таба с счетами
-        lAccounts.setAutoscrolls(true);
+        lAccounts.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         lAccounts.addListSelectionListener(new LAccountsSelectionListener());
         AccountButtonsListener accountButtonsListener = new AccountButtonsListener();
         bAddAccount.addActionListener(accountButtonsListener);
@@ -153,6 +153,7 @@ public class MainForm extends JFrame implements Runnable {
             e.printStackTrace();
         }
 
+        //noinspection MagicConstant
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         addWindowListener(new WindowAdapter() {
             public void windowClosing(WindowEvent e) {
@@ -162,12 +163,13 @@ public class MainForm extends JFrame implements Runnable {
 
         refreshTabAccount();
         if (controller.getAccounts().length > 0) {
+            currentAccountIndex = 0;
             lAccounts.setSelectedIndex(0);
         }
         refreshTable();
         if (tableModel.getRowCount() > 0) {
             tRecords.setRowSelectionInterval(0, 0);
-            refreshPanelRecordEdit(tableModel.getRecordAt(0));
+            refreshPanelRecordEdit((Integer) tableModel.getValueAt(tRecords.getSelectedRow(), MoneyManTableModel.ID_COLUMN));
         }
     }
 
@@ -211,8 +213,6 @@ public class MainForm extends JFrame implements Runnable {
         String[] accounts = controller.getAccounts();
         if (accounts.length >= 0) {
             lAccounts.setListData(accounts);
-        } else {
-            return;
         }
     }
 
@@ -233,86 +233,103 @@ public class MainForm extends JFrame implements Runnable {
     }
 
     //todo можно добавить множественное редактирование
-    private void refreshPanelRecordEdit(Record record) {
-        currentRecord = record;
-        lRecordID.setText(RECORD_NUMBER_TEXT + record.getId());
-        ftfRecordDateTime.setValue(record.getCreateTime());
-        ftfRecordAmount.setValue(record.getAmount());
+    private void refreshPanelRecordEdit(int currentRecordID) {
+        controller.currentRecord.setCurrentRecord(currentRecordID);
+        lRecordID.setText(RECORD_NUMBER_TEXT + controller.currentRecord.getID());
+        ftfRecordDateTime.setValue(controller.currentRecord.getDateTime());
+        ftfRecordAmount.setValue(controller.currentRecord.getAmount());
         //todo надо придумать как не обновлять каждый раз этот список
         cbRecordCategory.removeAllItems();
         for (String s : controller.getCategories()) {
             cbRecordCategory.addItem(s);
         }
-        cbRecordCategory.setSelectedItem(record.getCategory().getDescription());
-        taRecordDescription.setText(record.getDescription());
-    }
-
-    private void createNewRecord() {
-        lRecordID.setText(NEW_RECORD);
-        ftfRecordDateTime.setValue(System.currentTimeMillis());
-        ftfRecordAmount.setValue(0);
-        cbRecordCategory.removeAllItems();
-        for (String s : controller.getCategories()) {
-            cbRecordCategory.addItem(s);
-        }
-        taRecordDescription.setText("");
-    }
-
-    private void saveRecord() {
-        int id;
-        long amount = ((Number) ftfRecordAmount.getValue()).longValue();
-        String description = taRecordDescription.getText();
-        int categoryIndex = cbRecordCategory.getSelectedIndex();
-        long dateTime = 0;
-        int selectedAccountIndex = lAccounts.getSelectedIndex();
-        try {
-            dateTime = dateFormat.parse(ftfRecordDateTime.getText()).getTime();
-        } catch (ParseException e) {
-            messageBoxes.errorDateIncorrect();
-
-            e.printStackTrace();
-            return;
-        }
-        if (lRecordID.getText().equals(NEW_RECORD)) {
-            id = Record.NO_ID;
-        } else {
-            id = currentRecord.getId();
-        }
-        if (id == Record.NO_ID && selectedAccountIndex == -1) {
-            messageBoxes.warningChooseAccount();
-            return;
-        }
-        if (tpSortByTabs.getSelectedIndex() == SortByTabsChangeListener.ACCOUNT_SORT_TAB && selectedAccountIndex >= 0) {
-            controller.saveNewRecord(id, amount, description, categoryIndex, dateTime, selectedAccountIndex);
-        } else {
-            try {
-                controller.saveEditedRecord(id, amount, description, categoryIndex, dateTime);
-            } catch (Exception e) {
-                messageBoxes.warningChooseAccount();
-                return;
-            }
-        }
-        refreshAfterEditRecord();
-        refreshTable();
+        cbRecordCategory.setSelectedItem(controller.currentRecord.getCategoryDescription());
+        taRecordDescription.setText(controller.currentRecord.getDescription());
     }
 
     //todo множественное удаление
-    private void removeRecord() {
-        int row = tRecords.getSelectedRow();
-        controller.removeRecord(currentRecord.getId());
-        refreshAfterEditRecord();
-        if (row >= tRecords.getRowCount()) {
-            row = tRecords.getRowCount() - 1;
+    class EditRecordButtonsListener implements ActionListener {
+
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            if (e.getSource().equals(bCreateRecord)) {
+                createRecord();
+            } else if (e.getSource().equals(bRemoveRecord)) {
+                removeRecord();
+            } else if (e.getSource().equals(bSaveRecord)) {
+                saveRecord();
+                createRecord();
+            }
         }
-        if (row >= 0) {
-            tRecords.setRowSelectionInterval(row, row);
+
+        private void saveRecord() {
+            int id;
+            long amount = ((Number) ftfRecordAmount.getValue()).longValue();
+            String description = taRecordDescription.getText();
+            int categoryIndex = cbRecordCategory.getSelectedIndex();
+            long dateTime;
+            try {
+                dateTime = dateFormat.parse(ftfRecordDateTime.getText()).getTime();
+            } catch (ParseException parseException) {
+                messageBoxes.errorDateIncorrect();
+
+                parseException.printStackTrace();
+                return;
+            }
+            if (lRecordID.getText().equals(NEW_RECORD)) {
+                id = Controller.CurrentRecord.NO_ID;
+            } else {
+                id = controller.currentRecord.getID();
+            }
+            if (id != Controller.CurrentRecord.NO_ID && currentAccountIndex == -1) {
+                messageBoxes.warningChooseAccount();
+                return;
+            }
+            if (tpSortByTabs.getSelectedIndex() == SortByTabsChangeListener.ACCOUNT_SORT_TAB && currentAccountIndex >= 0) {
+                controller.saveNewRecord(id, amount, description, categoryIndex, dateTime, currentAccountIndex);
+            } else {
+                try {
+                    controller.saveEditedRecord(id, amount, description, categoryIndex, dateTime);
+                } catch (Exception exception) {
+                    messageBoxes.warningChooseAccount();
+                    return;
+                }
+            }
+            refreshAfterEditRecord();
+            lAccounts.setSelectedIndex(currentAccountIndex);
         }
+
+        private void removeRecord() {
+            int row = tRecords.getSelectedRow();
+            controller.removeRecord(controller.currentRecord.getID());
+            refreshAfterEditRecord();
+            if (row >= tRecords.getRowCount()) {
+                row = tRecords.getRowCount() - 1;
+            }
+            if (row >= 0) {
+                tRecords.setRowSelectionInterval(row, row);
+            }
+            lAccounts.setSelectedIndex(currentAccountIndex);
+        }
+
+        private void createRecord() {
+            lRecordID.setText(NEW_RECORD);
+            ftfRecordDateTime.setValue(System.currentTimeMillis());
+            ftfRecordAmount.setValue(0);
+            cbRecordCategory.removeAllItems();
+            for (String s : controller.getCategories()) {
+                cbRecordCategory.addItem(s);
+            }
+            taRecordDescription.setText("");
+        }
+
     }
 
     class LCategoriesSelectionListener implements ListSelectionListener {
         @Override
         public void valueChanged(ListSelectionEvent e) {
             if (lCategories.getSelectedIndex() >= 0) {
+                currentCategoryIndex = lCategories.getSelectedIndex();
                 controller.fillTableBy(new SelectParams().setCategoryIndex(lCategories.getSelectedIndex()));
                 refreshTable();
             }
@@ -323,7 +340,8 @@ public class MainForm extends JFrame implements Runnable {
         @Override
         public void valueChanged(ListSelectionEvent e) {
             if (lAccounts.getSelectedIndex() >= 0) {
-                controller.fillTableBy(new SelectParams().setAccountIndex(lAccounts.getSelectedIndex()));
+                currentAccountIndex = lAccounts.getSelectedIndex();
+                controller.fillTableBy(new SelectParams().setAccountIndex(currentAccountIndex));
                 refreshTable();
             }
         }
@@ -335,7 +353,8 @@ public class MainForm extends JFrame implements Runnable {
         public void valueChanged(ListSelectionEvent e) {
             int row = tRecords.getSelectedRow();
             if (row >= 0) {
-                refreshPanelRecordEdit(tableModel.getRecordAt(row));
+                controller.currentRecord.setCurrentRecord(tRecords.getSelectedRow());
+                refreshPanelRecordEdit((Integer) tableModel.getValueAt(tRecords.getSelectedRow(), MoneyManTableModel.ID_COLUMN));
             }
         }
     }
@@ -532,10 +551,11 @@ public class MainForm extends JFrame implements Runnable {
         @Override
         public void actionPerformed(ActionEvent e) {
             if (e.getSource().equals(bAddCategory)) {
+                currentCategoryIndex = -1;
                 showTextField();
             } else if (lCategories.getSelectedIndex() == -1) {
                 return;
-            } else if (lCategories.getSelectedValue().toString().equalsIgnoreCase(Controller.NO_CATEGORY_DESCRIPTION)) {
+            } else if (lCategories.getSelectedValue().equalsIgnoreCase(Controller.NO_CATEGORY_DESCRIPTION)) {
                 messageBoxes.errorEditNoCategory();
             } else if (e.getSource().equals(bEditCategory)) {
                 refreshTextField();
@@ -549,7 +569,10 @@ public class MainForm extends JFrame implements Runnable {
                     }
                 }
             }
-            refreshPanelRecordEdit(currentRecord);
+            if (currentCategoryIndex >= 0) {
+                lCategories.setSelectedIndex(currentCategoryIndex);
+            }
+            refreshPanelRecordEdit(controller.currentRecord.getID());
         }
 
         private void removeCategory(int index) {
@@ -596,7 +619,7 @@ public class MainForm extends JFrame implements Runnable {
         @Override
         public void keyReleased(KeyEvent e) {
             if (e.getKeyCode() == 10) {
-                if (lCategories.getSelectedIndex() >= 0) {
+                if (currentCategoryIndex >= 0) {
                     try {
                         controller.editCategory(lCategories.getSelectedIndex(), tfCategoryDescription.getText());
                         tfCategoryDescription.setText("");
@@ -619,7 +642,7 @@ public class MainForm extends JFrame implements Runnable {
                         e1.printStackTrace();
                     }
                 }
-                refreshPanelRecordEdit(currentRecord);
+                refreshPanelRecordEdit(controller.currentRecord.getID());
             }
         }
     }
@@ -639,11 +662,11 @@ public class MainForm extends JFrame implements Runnable {
             JOptionPane.showMessageDialog(thisFrame, "Некорректная дата", "Ошибка ввода", JOptionPane.ERROR_MESSAGE);
         }
 
-        public void warningChooseAccount() {
+        void warningChooseAccount() {
             JOptionPane.showMessageDialog(thisFrame, "Выберите счет, чтобы сохранить в него новую запись", "Счет не выбран", JOptionPane.WARNING_MESSAGE);
         }
 
-        public int confirmationRemoveCategory() {
+        int confirmationRemoveCategory() {
             return JOptionPane.showConfirmDialog(null, "Вы уверены, что хотите удалить категории/категорию",
                     "Подтверждение удаления",
                     JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);

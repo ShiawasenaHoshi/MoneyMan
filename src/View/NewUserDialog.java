@@ -3,7 +3,9 @@ package View;
 import Controller.Controller;
 
 import javax.swing.*;
-import java.awt.event.*;
+import java.awt.event.KeyEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -21,18 +23,9 @@ public class NewUserDialog extends JDialog {
         setContentPane(contentPane);
         setModal(true);
         getRootPane().setDefaultButton(buttonOK);
-//        lError.setVisible(false);
-        buttonOK.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                onOK();
-            }
-        });
+        buttonOK.addActionListener(e -> onOK());
 
-        buttonCancel.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                onCancel();
-            }
-        });
+        buttonCancel.addActionListener(e -> onCancel());
 
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         addWindowListener(new WindowAdapter() {
@@ -41,33 +34,26 @@ public class NewUserDialog extends JDialog {
             }
         });
 
-        contentPane.registerKeyboardAction(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                onCancel();
-            }
-        }, KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
+        contentPane.registerKeyboardAction(e -> onCancel(), KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
     }
 
 
     private void onOK() {
         if (!loginIsOk(tfLogin.getText())) {
             lError.setText("Логин должен состоять из 3-20 латинских символов и букв, первый символ обязательно буква");
-//            lError.setVisible(true);
             return;
         }
         if (!passwordIsOk(tfPassword.getText())) {
             lError.setText("Пароль должен состоять из латинских букв (строчных и прописных) и цифр");
-//            lError.setVisible(true);
             return;
         }
         if (controller.userExist(tfLogin.getText())) {
             lError.setText("Такой пользователь уже существует");
-//            lError.setVisible(true);
             return;
         }
         controller.createNewUser(tfLogin.getText(), tfPassword.getPassword());
-        JOptionPane.showConfirmDialog(null, String.format("Пользователь %s создан!", tfLogin.getText()),
-                "Пользователь создан", JOptionPane.OK_OPTION);
+        JOptionPane.showMessageDialog(this, String.format("Пользователь %s создан!", tfLogin.getText()),
+                "Пользователь создан", JOptionPane.ERROR_MESSAGE);
         dispose();
     }
 

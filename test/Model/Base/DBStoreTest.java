@@ -79,7 +79,7 @@ public class DBStoreTest {
     public void testAddAccount() throws Exception {
         User user = db.getUser("Alisa");
         User nullUser = null;
-        Account account = Account.getNewAccountNoID("Дома" + Math.random());
+        Account account = new Account(Account.NO_ID, "Дома" + Math.random());
         Account nullAccount = null;
         User unknownUser = new User("Барсук", HashMaker.getHash("барсук"));
         Account account1 = db.addAccount(user, account);

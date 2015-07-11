@@ -5,7 +5,7 @@ import Controller.MoneyManTableModel;
 import Controller.SelectParams;
 import Model.DataTypes.Record;
 
-import javax.swing.*;
+import javax.naming.OperationNotSupportedException;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.event.ListSelectionEvent;
@@ -15,8 +15,6 @@ import javax.swing.text.DateFormatter;
 import javax.swing.text.DefaultFormatterFactory;
 import javax.swing.text.MaskFormatter;
 import javax.swing.text.NumberFormatter;
-import java.awt.*;
-import java.awt.event.*;
 import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -26,6 +24,10 @@ import java.text.SimpleDateFormat;
  */
 public class MainForm extends JFrame implements Runnable {
     public static final String NEW_RECORD = "Новая запись";
+    public static final String RECORD_NUMBER_TEXT = "Запись №";
+    public static final String INCOME_TEXT = "Приход: +";
+    public static final String SPEND_TEXT = "Расход: ";
+    public static final String RECORDS_COUNT_TEXT = "Записей: ";
     private JPanel rootPanel;
     private JTable tRecords;
     private JTabbedPane tpSortByTabs;
@@ -60,16 +62,18 @@ public class MainForm extends JFrame implements Runnable {
     private JTextField tfAccountDescription;
     private JPanel accountPanel;
     private JPanel categoryPanel;
-    private JTextField tfCategoryName;
     private JTextField tfCategoryDescription;
-    private JPanel categoryTextFieldsPanel;
     private Controller controller;
+    //todo сделать возможность сокрытия колонок
     private String[] columnNames = {"ID", "Дата", "Сумма", "Категория", "Описание"};
     private MoneyManTableModel tableModel;
     private SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+    //todo заменить record на что-нибудь другое, чтобы был чистый MVC
     private Record currentRecord;
     private Frame thisFrame;
+    private MessageBoxes messageBoxes;
 
+    //fixme А ты не пробовал использовать Java стиль "javax.swing.plaf.metal.MetalLookAndFeel"? Он на всех ОС по идее должен отображаться одинаково.
     public MainForm(Controller controller) {
         super("Главная форма");
         this.controller = controller;
@@ -89,22 +93,23 @@ public class MainForm extends JFrame implements Runnable {
     }
 
     private void init() {
+        messageBoxes = new MessageBoxes();
         //Иницализация таблицы
         tableModel = new MoneyManTableModel(controller, columnNames);
         tRecords.setModel(tableModel);
-//        tRecords.addMouseListener(new TableMouseListener());
         tRecords.getSelectionModel().addListSelectionListener(new TableSelectionChangeListener());
         tRecords.setDefaultRenderer(Object.class, new TableRenderer());
 
-
         //Инициализация кнопок редактирования записи
-        bCreateRecord.addActionListener(e -> createNewRecord());
-        bRemoveRecord.addActionListener(e -> removeRecord());
-        bSaveRecord.addActionListener(e -> saveRecord());
+        EditRecordButtonsListener editRecordButtonsListener = new EditRecordButtonsListener();
+        bCreateRecord.addActionListener(editRecordButtonsListener);
+        bRemoveRecord.addActionListener(editRecordButtonsListener);
+        bSaveRecord.addActionListener(editRecordButtonsListener);
 
         //Инициализация табов
         tpSortByTabs.addChangeListener(new SortByTabsChangeListener());
         //Инициализация таба с счетами
+        lAccounts.setAutoscrolls(true);
         lAccounts.addListSelectionListener(new LAccountsSelectionListener());
         AccountButtonsListener accountButtonsListener = new AccountButtonsListener();
         bAddAccount.addActionListener(accountButtonsListener);
@@ -114,15 +119,14 @@ public class MainForm extends JFrame implements Runnable {
         tfAccountDescription.addKeyListener(new AccountTextFieldListener());
 
         //Инициализация таба с категориями
+        lCategories.setAutoscrolls(true);
         lCategories.addListSelectionListener(new LCategoriesSelectionListener());
         CategoryButtonsListener categoryButtonsListener = new CategoryButtonsListener();
         bAddCategory.addActionListener(categoryButtonsListener);
         bEditCategory.addActionListener(categoryButtonsListener);
         bRemoveCategory.addActionListener(categoryButtonsListener);
-        categoryTextFieldsPanel.setVisible(false);
-        CategoryTextFieldsListener categoryTextFieldsListener = new CategoryTextFieldsListener();
-        tfCategoryName.addKeyListener(categoryTextFieldsListener);
-        tfCategoryDescription.addKeyListener(categoryTextFieldsListener);
+        tfCategoryDescription.setVisible(false);
+        tfCategoryDescription.addKeyListener(new CategoryTextFieldListener());
 
         DefaultFormatterFactory amountDFF = new DefaultFormatterFactory(new NumberFormatter(new DecimalFormat()));
         ftfAmountFrom.setFormatterFactory(amountDFF);
@@ -218,90 +222,93 @@ public class MainForm extends JFrame implements Runnable {
         String[] categories = controller.getCategories();
         if (categories.length > 0) {
             lCategories.setListData(categories);
-        } else {
-            return;
         }
     }
 
-    //О том как редактировать отдельные ячейки http://stackoverflow.com/questions/5918727/updating-data-in-a-jtable
-    // туториал по табличкам http://docs.oracle.com/javase/tutorial/uiswing/components/table.html
-    // выделение нескольких http://stackoverflow.com/questions/14416188/jtable-how-to-get-selected-cells
     private void refreshTable() {
         controller.fillTableBy();
         tableModel.fireTableDataChanged();
-        jIncome.setText("Приход: +" + controller.getIncome());
-        jSpend.setText("Расход: " + controller.getSpend());
-        jRecordsCount.setText("Записей: " + tableModel.getRowCount());
+        jIncome.setText(INCOME_TEXT + controller.getIncome());
+        jSpend.setText(SPEND_TEXT + controller.getSpend());
+        jRecordsCount.setText(RECORDS_COUNT_TEXT + tableModel.getRowCount());
     }
 
     //todo можно добавить множественное редактирование
     private void refreshPanelRecordEdit(Record record) {
         currentRecord = record;
-        lRecordID.setText("Запись №" + record.getId());
-        ftfRecordDateTime.setValue(record.getCreateTime());
+        lRecordID.setText(RECORD_NUMBER_TEXT + record.getId());
+        ftfRecordDateTime.setValue(record.getDateTime());
         ftfRecordAmount.setValue(record.getAmount());
         //todo надо придумать как не обновлять каждый раз этот список
         cbRecordCategory.removeAllItems();
         for (String s : controller.getCategories()) {
             cbRecordCategory.addItem(s);
         }
-        cbRecordCategory.setSelectedItem(record.getCategory().getName());
+        cbRecordCategory.setSelectedItem(record.getCategory().getDescription());
         taRecordDescription.setText(record.getDescription());
     }
 
-    private void createNewRecord() {
-        lRecordID.setText(NEW_RECORD);
-        ftfRecordDateTime.setValue(System.currentTimeMillis());
-        ftfRecordAmount.setValue(0);
-        cbRecordCategory.removeAllItems();
-        for (String s : controller.getCategories()) {
-            cbRecordCategory.addItem(s);
-        }
-        taRecordDescription.setText("");
-    }
-
-    private void saveRecord() {
-        int id;
-        long amount = ((Number) ftfRecordAmount.getValue()).longValue();
-        String description = taRecordDescription.getText();
-        int categoryIndex = cbRecordCategory.getSelectedIndex();
-        long dateTime = 0;
-        int selectedAccountIndex = lAccounts.getSelectedIndex();
-        try {
-            dateTime = dateFormat.parse(ftfRecordDateTime.getText()).getTime();
-        } catch (ParseException e) {
-            JOptionPane.showMessageDialog(this, "Некорректная дата", "Ошибка ввода", JOptionPane.ERROR_MESSAGE);
-            e.printStackTrace();
-            return;
-        }
-        if (lRecordID.getText().equals(NEW_RECORD)) {
-            id = Record.NO_ID;
-        } else {
-            id = currentRecord.getId();
-        }
-        if (id == Record.NO_ID && selectedAccountIndex == -1) {
-            JOptionPane.showMessageDialog(this, "Выберите счет, чтобы сохранить в него новую запись", "Счет не выбран", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        if (tpSortByTabs.getSelectedIndex() == SortByTabsChangeListener.ACCOUNT_SORT_TAB && selectedAccountIndex >= 0) {
-            controller.saveNewRecord(id, amount, description, categoryIndex, dateTime, selectedAccountIndex);
-        } else {
-            controller.saveEditedRecord(id, amount, description, categoryIndex, dateTime);
-        }
-        refreshAfterEditRecord();
-        refreshTable();
-    }
-
     //todo множественное удаление
-    private void removeRecord() {
-        int row = tRecords.getSelectedRow();
-        controller.removeRecord(currentRecord.getId());
-        refreshAfterEditRecord();
-        if (row >= tRecords.getRowCount()) {
-            row = tRecords.getRowCount() - 1;
-        }
-        if (row >= 0) {
-            tRecords.setRowSelectionInterval(row, row);
+    class EditRecordButtonsListener implements ActionListener {
+
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            if (e.getSource().equals(bCreateRecord)) {
+                lRecordID.setText(NEW_RECORD);
+                ftfRecordDateTime.setValue(System.currentTimeMillis());
+                ftfRecordAmount.setValue(0);
+                cbRecordCategory.removeAllItems();
+                for (String s : controller.getCategories()) {
+                    cbRecordCategory.addItem(s);
+                }
+                taRecordDescription.setText("");
+            } else if (e.getSource().equals(bRemoveRecord)) {
+                int row = tRecords.getSelectedRow();
+                controller.removeRecord(currentRecord.getId());
+                refreshAfterEditRecord();
+                if (row >= tRecords.getRowCount()) {
+                    row = tRecords.getRowCount() - 1;
+                }
+                if (row >= 0) {
+                    tRecords.setRowSelectionInterval(row, row);
+                }
+            } else if (e.getSource().equals(bSaveRecord)) {
+                int id;
+                long amount = ((Number) ftfRecordAmount.getValue()).longValue();
+                String description = taRecordDescription.getText();
+                int categoryIndex = cbRecordCategory.getSelectedIndex();
+                long dateTime = 0;
+                int selectedAccountIndex = lAccounts.getSelectedIndex();
+                try {
+                    dateTime = dateFormat.parse(ftfRecordDateTime.getText()).getTime();
+                } catch (ParseException parseException) {
+                    messageBoxes.errorDateIncorrect();
+
+                    parseException.printStackTrace();
+                    return;
+                }
+                if (lRecordID.getText().equals(NEW_RECORD)) {
+                    id = Record.NO_ID;
+                } else {
+                    id = currentRecord.getId();
+                }
+                if (id == Record.NO_ID && selectedAccountIndex == -1) {
+                    messageBoxes.warningChooseAccount();
+                    return;
+                }
+                if (tpSortByTabs.getSelectedIndex() == SortByTabsChangeListener.ACCOUNT_SORT_TAB && selectedAccountIndex >= 0) {
+                    controller.saveNewRecord(id, amount, description, categoryIndex, dateTime, selectedAccountIndex);
+                } else {
+                    try {
+                        controller.saveEditedRecord(id, amount, description, categoryIndex, dateTime);
+                    } catch (Exception exception) {
+                        messageBoxes.warningChooseAccount();
+                        return;
+                    }
+                }
+                refreshAfterEditRecord();
+                refreshTable();
+            }
         }
     }
 
@@ -346,24 +353,27 @@ public class MainForm extends JFrame implements Runnable {
         public void stateChanged(ChangeEvent e) {
             switch (tpSortByTabs.getSelectedIndex()) {
                 case ACCOUNT_SORT_TAB: {
+                    bCreateRecord.setEnabled(true);
                     refreshTabAccount();
                     break;
                 }
                 case CATEGORY_SORT_TAB: {
+                    bCreateRecord.setEnabled(false);
                     refreshTabCategory();
                     break;
                 }
                 case DATETIME_SORT_TAB: {
+                    bCreateRecord.setEnabled(false);
                     refreshTabDateTime();
                     break;
                 }
                 case AMOUNT_SORT_TAB: {
+                    bCreateRecord.setEnabled(false);
                     refreshTabAmount();
                     break;
                 }
             }
         }
-
     }
 
     class AmountFromToListener implements KeyListener {
@@ -414,7 +424,7 @@ public class MainForm extends JFrame implements Runnable {
                         dateTimeFrom = dateFormat.parse(ftfDateFrom.getText()).getTime();
                         dateTimeTo = dateFormat.parse(ftfDateTo.getText()).getTime();
                     } catch (ParseException exception) {
-                        JOptionPane.showMessageDialog(thisFrame, "Некорректная дата", "Ошибка ввода", JOptionPane.ERROR_MESSAGE);
+                        messageBoxes.errorDateIncorrect();
                         exception.printStackTrace();
                         return;
                     }
@@ -439,7 +449,6 @@ public class MainForm extends JFrame implements Runnable {
         }
     }
 
-
     class AccountButtonsListener implements ActionListener {
         @Override
         public void actionPerformed(ActionEvent e) {
@@ -452,16 +461,9 @@ public class MainForm extends JFrame implements Runnable {
                 }
             } else if (e.getSource().equals(bRemoveAccount)) {
                 if (lAccounts.getSelectedIndex() >= 0) {
-                    //прежде удаления вызвать мбокс
-                    int response = JOptionPane.showConfirmDialog(null, "Вы уверены, что хотите удалить данный счет",
-                            "Подтверждение удаления счета",
-                            JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
-                    if (response == JOptionPane.NO_OPTION) {
-
-                    } else if (response == JOptionPane.YES_OPTION) {
+                    int response = messageBoxes.removeAccountDialog();
+                    if (response == JOptionPane.YES_OPTION) {
                         removeAccount();
-                    } else if (response == JOptionPane.CLOSED_OPTION) {
-
                     }
                 }
             }
@@ -529,38 +531,33 @@ public class MainForm extends JFrame implements Runnable {
         }
     }
 
-
     class CategoryButtonsListener implements ActionListener {
-        public static final int CATEGORY_NAME = 0;
-        public static final int CATEGORY_DESCRIPTION = 1;
         @Override
         public void actionPerformed(ActionEvent e) {
             if (e.getSource().equals(bAddCategory)) {
-                showTextFieldsPanel();
+                showTextField();
+            } else if (lCategories.getSelectedIndex() == -1) {
+                return;
+            } else if (lCategories.getSelectedValue().toString().equalsIgnoreCase(Controller.NO_CATEGORY_DESCRIPTION)) {
+                messageBoxes.errorEditNoCategory();
             } else if (e.getSource().equals(bEditCategory)) {
-                if (lCategories.getSelectedIndex() >= 0) {
-                    showTextFieldsPanel();
-                    refreshTextFields();
-                }
+                refreshTextField();
+                showTextField();
             } else if (e.getSource().equals(bRemoveCategory)) {
-                if (lCategories.getSelectedIndex() >= 0) {
-                    int response = JOptionPane.showConfirmDialog(null, "Вы уверены, что хотите удалить данную категорию?",
-                            "Подтверждение удаления категории",
-                            JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
-                    if (response == JOptionPane.NO_OPTION) {
-
-                    } else if (response == JOptionPane.YES_OPTION) {
-                        removeCategory();
-                    } else if (response == JOptionPane.CLOSED_OPTION) {
-
+                int[] indexes = lCategories.getSelectedIndices();
+                int response = messageBoxes.confirmationRemoveCategory();
+                if (response == JOptionPane.YES_OPTION) {
+                    for (int i = indexes.length - 1; i >= 0; i--) {
+                        removeCategory(indexes[i]);
                     }
                 }
             }
+            refreshPanelRecordEdit(currentRecord);
         }
 
-        private void removeCategory() {
+        private void removeCategory(int index) {
             try {
-                controller.removeCategory(lCategories.getSelectedIndex());
+                controller.removeCategory(index);
             } catch (Exception e1) {
                 e1.printStackTrace();
             }
@@ -568,23 +565,26 @@ public class MainForm extends JFrame implements Runnable {
             refreshTable();
         }
 
-        private void showTextFieldsPanel() {
-            if (!categoryTextFieldsPanel.isVisible()) {
-                categoryTextFieldsPanel.setVisible(true);
+        private void showTextField() {
+            if (!tfCategoryDescription.isVisible()) {
+                tfCategoryDescription.setVisible(true);
                 refreshTabCategory();
             }
         }
 
-        public void refreshTextFields() {
-            String[] category = controller.getCategory(lCategories.getSelectedIndex());
-            tfCategoryName.setText(category[CATEGORY_NAME]);
-            tfCategoryDescription.setText(category[CATEGORY_DESCRIPTION]);
+        public void refreshTextField() {
+            if (lCategories.getSelectedIndex() == -1) {
+                return;
+            }
+            try {
+                tfCategoryDescription.setText(controller.getCategory(lCategories.getSelectedIndex()));
+            } catch (OperationNotSupportedException e) {
+                e.printStackTrace();
+            }
         }
     }
 
-    //todo проверка на вводимые названия категорий
-    //todo не зачем юзеру вводить название категории. Пусть оно транслитерируется из Описания
-    class CategoryTextFieldsListener implements KeyListener {
+    class CategoryTextFieldListener implements KeyListener {
 
         @Override
         public void keyTyped(KeyEvent e) {
@@ -599,11 +599,9 @@ public class MainForm extends JFrame implements Runnable {
         @Override
         public void keyReleased(KeyEvent e) {
             if (e.getKeyCode() == 10) {
-                String name = tfCategoryName.getText();
-                String description = tfCategoryDescription.getText();
                 if (lCategories.getSelectedIndex() >= 0) {
                     try {
-                        controller.editCategory(lAccounts.getSelectedIndex(), tfCategoryDescription.getText());
+                        controller.editCategory(lCategories.getSelectedIndex(), tfCategoryDescription.getText());
                         tfCategoryDescription.setText("");
                         tfCategoryDescription.setVisible(false);
                         refreshTabCategory();
@@ -612,7 +610,11 @@ public class MainForm extends JFrame implements Runnable {
                     }
                 } else {
                     try {
-                        controller.addAccount(description);
+                        if (tfCategoryDescription.getText().equalsIgnoreCase(Controller.NO_CATEGORY_DESCRIPTION)) {
+                            messageBoxes.errorEditNoCategory();
+                            return;
+                        }
+                        controller.addCategory(tfCategoryDescription.getText());
                         tfCategoryDescription.setText("");
                         tfCategoryDescription.setVisible(false);
                         refreshTabCategory();
@@ -620,9 +622,38 @@ public class MainForm extends JFrame implements Runnable {
                         e1.printStackTrace();
                     }
                 }
+                refreshPanelRecordEdit(currentRecord);
             }
         }
     }
+
+    private class MessageBoxes {
+        void errorEditNoCategory() {
+            JOptionPane.showMessageDialog(thisFrame, "Категорию \"Без категории\" редактировать нельзя", "", JOptionPane.ERROR_MESSAGE);
+        }
+
+        int removeAccountDialog() {
+            return JOptionPane.showConfirmDialog(null, "Вы уверены, что хотите удалить данный счет",
+                    "Подтверждение удаления счета",
+                    JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+        }
+
+        void errorDateIncorrect() {
+            JOptionPane.showMessageDialog(thisFrame, "Некорректная дата", "Ошибка ввода", JOptionPane.ERROR_MESSAGE);
+        }
+
+        public void warningChooseAccount() {
+            JOptionPane.showMessageDialog(thisFrame, "Выберите счет, чтобы сохранить в него новую запись", "Счет не выбран", JOptionPane.WARNING_MESSAGE);
+        }
+
+        public int confirmationRemoveCategory() {
+            return JOptionPane.showConfirmDialog(null, "Вы уверены, что хотите удалить категории/категорию",
+                    "Подтверждение удаления",
+                    JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+        }
+    }
 }
+
+
 
 

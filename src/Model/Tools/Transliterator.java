@@ -7,7 +7,7 @@ import java.util.Map;
  * Created by vasily on 08.07.15.
  */
 public class Transliterator {
-    private static final Map<Character, String> charMap = new HashMap<Character, String>();
+    private static final Map<Character, String> charMap = new HashMap<>();
 
     static {
         charMap.put('А', "A");

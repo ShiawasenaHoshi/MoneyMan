@@ -2,7 +2,6 @@ package Model.DataTypes;
 
 import Model.Tools.HashMaker;
 
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -18,20 +17,6 @@ public class User extends DataType {
         this.name = name;
         this.passwordHash = passwordHash;
         accounts = new HashSet<>();
-    }
-
-    public Set<Account> getAccounts() {
-        return accounts;
-    }
-
-    public User addAccount(Account account) {
-        accounts.add(account);
-        return this;
-    }
-
-    public User addAccounts(Collection<? extends Account> accounts) {
-        this.accounts.addAll(accounts);
-        return this;
     }
 
     public String getName() {

@@ -8,9 +8,6 @@ import java.security.NoSuchAlgorithmException;
  * Created by vasily on 31.05.15.
  */
 public class HashMaker {
-    /*Класс с набором методов для получения хэша пароля(getHash) и сравнения существующего хеша с введенным паролем (stringAreEquals())
-    * Интереса ради, он не только хеширует в MD5 и AES, но и добавляет соль между ними*/
-
     public static boolean stringAreEquals(char[] password, String hash) {
         return (getHash(password)).equals(hash);
     }
@@ -33,7 +30,7 @@ public class HashMaker {
     }
 
     private static String getMD5(String s) {
-        MessageDigest messageDigest = null;
+        MessageDigest messageDigest;
         byte[] digest = new byte[0];
 
         try {
@@ -66,11 +63,13 @@ public class HashMaker {
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
         }
-        messageDigest.update(s.getBytes());
+        if (messageDigest != null) {
+            messageDigest.update(s.getBytes());
+        }
 
-        StringBuffer hexString = new StringBuffer();
-        for (int i = 0; i < digest.length; i++) {
-            String hex = Integer.toHexString(0xff & digest[i]);
+        StringBuilder hexString = new StringBuilder();
+        for (byte aDigest : digest) {
+            String hex = Integer.toHexString(0xff & aDigest);
             if (hex.length() == 1) hexString.append('0');
             hexString.append(hex);
         }

@@ -11,13 +11,13 @@ import java.sql.*;
 public enum DBHelper {
     INSTANCE;
     final private static Logger LOGGER = LoggerFactory.getLogger(DBHelper.class);
-    private String databaseUri = "jdbc:sqlite:MoneyMan.db";
     private Connection connection;
 
     public Connection getConnection() {
         if (connection == null) {
             try {
                 Class.forName("org.sqlite.JDBC");
+                String databaseUri = "jdbc:sqlite:MoneyMan.db";
                 connection = DriverManager.getConnection(databaseUri);
                 LOGGER.info("Соединение установлено");
                 if (!isTablesExist()) {
@@ -66,9 +66,9 @@ public enum DBHelper {
     public void recreateTables() {
         Statement statement = null;
         try {
-            Statement stmt = connection.createStatement();
+            statement = connection.createStatement();
             String createSql = readResource(DBHelper.class, "/Model/SQLScripts/drop_tables.sql");
-            stmt.executeUpdate(createSql);
+            statement.executeUpdate(createSql);
             LOGGER.info("Все таблицы дропнуты");
             createTables();
         } catch (SQLException e) {
