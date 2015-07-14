@@ -107,7 +107,7 @@ public class MainForm extends JFrame implements Runnable {
         //Иницализация таблицы
         tableModel = new MoneyManTableModel(controller, columnNames);
         tRecords.setModel(tableModel);
-        tRecords.getSelectionModel().addListSelectionListener(new TableSelectionChangeListener());
+        tRecords.getSelectionModel().addListSelectionListener(new RecordsTableSelectionChangeListener());
         tRecords.setDefaultRenderer(Object.class, new TableRenderer());
 
         //Инициализация кнопок редактирования записи
@@ -117,10 +117,10 @@ public class MainForm extends JFrame implements Runnable {
         bSaveRecord.addActionListener(editRecordButtonsListener);
 
         //Инициализация табов
-        tpSortByTabs.addChangeListener(new SortByTabsChangeListener());
+        tpSortByTabs.addChangeListener(new TabsChangeListener());
         //Инициализация таба с счетами
         lAccounts.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        lAccounts.addListSelectionListener(new LAccountsSelectionListener());
+        lAccounts.addListSelectionListener(new AccountsListSelectionListener());
         AccountButtonsListener accountButtonsListener = new AccountButtonsListener();
         bAddAccount.addActionListener(accountButtonsListener);
         bEditAccount.addActionListener(accountButtonsListener);
@@ -130,7 +130,7 @@ public class MainForm extends JFrame implements Runnable {
 
         //Инициализация таба с категориями
         lCategories.setAutoscrolls(true);
-        lCategories.addListSelectionListener(new LCategoriesSelectionListener());
+        lCategories.addListSelectionListener(new CategoriesListSelectionListener());
         CategoryButtonsListener categoryButtonsListener = new CategoryButtonsListener();
         bAddCategory.addActionListener(categoryButtonsListener);
         bEditCategory.addActionListener(categoryButtonsListener);
@@ -183,27 +183,26 @@ public class MainForm extends JFrame implements Runnable {
             tRecords.setRowSelectionInterval(0, 0);
             refreshPanelRecordEdit((Integer) tableModel.getValueAt(tRecords.getSelectedRow(), MoneyManTableModel.ID_COLUMN));
         }
-
     }
 
     private void refreshAfterEditRecord() {
         switch (tpSortByTabs.getSelectedIndex()) {
-            case SortByTabsChangeListener.ACCOUNT_SORT_TAB: {
+            case TabsChangeListener.ACCOUNT_SORT_TAB: {
                 refreshTabAccount();
                 refreshTable();
                 break;
             }
-            case SortByTabsChangeListener.CATEGORY_SORT_TAB: {
+            case TabsChangeListener.CATEGORY_SORT_TAB: {
                 refreshTabCategory();
                 refreshTable();
                 break;
             }
-            case SortByTabsChangeListener.AMOUNT_SORT_TAB: {
+            case TabsChangeListener.AMOUNT_SORT_TAB: {
                 refreshTabAmount();
                 refreshTable();
                 break;
             }
-            case SortByTabsChangeListener.DATETIME_SORT_TAB: {
+            case TabsChangeListener.DATETIME_SORT_TAB: {
                 refreshTabDateTime();
                 refreshTable();
                 break;
@@ -298,7 +297,7 @@ public class MainForm extends JFrame implements Runnable {
                 messageBoxes.warningChooseAccount();
                 return;
             }
-            if (tpSortByTabs.getSelectedIndex() == SortByTabsChangeListener.ACCOUNT_SORT_TAB && currentAccountIndex >= 0) {
+            if (tpSortByTabs.getSelectedIndex() == TabsChangeListener.ACCOUNT_SORT_TAB && currentAccountIndex >= 0) {
                 controller.saveNewRecord(id, amount, description, categoryIndex, dateTime, currentAccountIndex);
             } else {
                 try {
@@ -338,7 +337,7 @@ public class MainForm extends JFrame implements Runnable {
 
     }
 
-    class LCategoriesSelectionListener implements ListSelectionListener {
+    class CategoriesListSelectionListener implements ListSelectionListener {
         @Override
         public void valueChanged(ListSelectionEvent e) {
             if (lCategories.getSelectedIndex() >= 0) {
@@ -349,7 +348,7 @@ public class MainForm extends JFrame implements Runnable {
         }
     }
 
-    class LAccountsSelectionListener implements ListSelectionListener {
+    class AccountsListSelectionListener implements ListSelectionListener {
         @Override
         public void valueChanged(ListSelectionEvent e) {
             if (lAccounts.getSelectedIndex() >= 0) {
@@ -360,7 +359,7 @@ public class MainForm extends JFrame implements Runnable {
         }
     }
 
-    class TableSelectionChangeListener implements ListSelectionListener {
+    class RecordsTableSelectionChangeListener implements ListSelectionListener {
 
         @Override
         public void valueChanged(ListSelectionEvent e) {
@@ -372,7 +371,7 @@ public class MainForm extends JFrame implements Runnable {
         }
     }
 
-    class SortByTabsChangeListener implements ChangeListener {
+    class TabsChangeListener implements ChangeListener {
         public static final int ACCOUNT_SORT_TAB = 0;
         public static final int CATEGORY_SORT_TAB = 1;
         public static final int DATETIME_SORT_TAB = 2;
@@ -420,7 +419,7 @@ public class MainForm extends JFrame implements Runnable {
         @Override
         public void keyReleased(KeyEvent e) {
             if (e.getKeyCode() == 10) {
-                if (tpSortByTabs.getSelectedIndex() == SortByTabsChangeListener.AMOUNT_SORT_TAB) {
+                if (tpSortByTabs.getSelectedIndex() == TabsChangeListener.AMOUNT_SORT_TAB) {
                     if ((long) ftfAmountFrom.getValue() > (long) ftfAmountTo.getValue()) {
                         ftfAmountFrom.setValue((long) ftfAmountTo.getValue() - 1);
                     }
@@ -446,7 +445,7 @@ public class MainForm extends JFrame implements Runnable {
         @Override
         public void keyReleased(KeyEvent e) {
             if (e.getKeyCode() == 10) {
-                if (tpSortByTabs.getSelectedIndex() == SortByTabsChangeListener.DATETIME_SORT_TAB) {
+                if (tpSortByTabs.getSelectedIndex() == TabsChangeListener.DATETIME_SORT_TAB) {
                     long dateTimeFrom;
                     long dateTimeTo;
                     try {
@@ -458,6 +457,7 @@ public class MainForm extends JFrame implements Runnable {
                         return;
                     }
                     if (dateTimeFrom > dateTimeTo) {
+                        //10000 - достаточно большое случайное число
                         dateTimeFrom = dateTimeTo - 10000;
                         ftfDateFrom.setValue(dateTimeFrom);
                         ftfDateTo.setValue(dateTimeTo);
