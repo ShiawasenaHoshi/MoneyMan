@@ -8,16 +8,6 @@ import java.sql.*;
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * Created by vasily on 31.05.15.
- */
-
-//TODO должен ли юзер возвращаться с уже заполненными аккаунтами? Или призыв юзера, затем его счетов и записей, это
-//работа контроллера, а не модели (DBStorе, как я понимаю, это уровень модели)
-
-//TODO можно сделать, чтобы ни один из потомков DataType не создавался без участия базы. Чтобы пользователь получал новый объект
-//через особый метод, например. Тогда программист-пользователь не сможет получить объект без ID;
-
 public class DBStore implements DataStore {
     final private static Logger LOGGER = LoggerFactory.getLogger(DataStore.class);
     Connection connection;

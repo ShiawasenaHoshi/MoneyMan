@@ -1,6 +1,7 @@
 package View;
 
 import Controller.Controller;
+import Controller.WindowController;
 import Controller.MoneyManTableModel;
 import Controller.SelectParams;
 import Model.DataTypes.Record;
@@ -74,7 +75,7 @@ public class MainForm extends JFrame implements Runnable {
     private MessageBoxes messageBoxes;
 
     //fixme А ты не пробовал использовать Java стиль "javax.swing.plaf.metal.MetalLookAndFeel"? Он на всех ОС по идее должен отображаться одинаково.
-    public MainForm(Controller controller) {
+    public MainForm(Controller.Controller controller) {
         super("Главная форма");
         this.controller = controller;
         thisFrame = this;
@@ -538,7 +539,7 @@ public class MainForm extends JFrame implements Runnable {
                 showTextField();
             } else if (lCategories.getSelectedIndex() == -1) {
                 return;
-            } else if (lCategories.getSelectedValue().toString().equalsIgnoreCase(Controller.NO_CATEGORY_DESCRIPTION)) {
+            } else if (lCategories.getSelectedValue().toString().equalsIgnoreCase(WindowController.NO_CATEGORY_DESCRIPTION)) {
                 messageBoxes.errorEditNoCategory();
             } else if (e.getSource().equals(bEditCategory)) {
                 refreshTextField();
@@ -610,7 +611,7 @@ public class MainForm extends JFrame implements Runnable {
                     }
                 } else {
                     try {
-                        if (tfCategoryDescription.getText().equalsIgnoreCase(Controller.NO_CATEGORY_DESCRIPTION)) {
+                        if (tfCategoryDescription.getText().equalsIgnoreCase(WindowController.NO_CATEGORY_DESCRIPTION)) {
                             messageBoxes.errorEditNoCategory();
                             return;
                         }

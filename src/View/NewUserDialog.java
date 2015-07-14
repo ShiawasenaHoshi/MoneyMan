@@ -69,8 +69,6 @@ public class NewUserDialog extends JDialog {
 
     //fixme не угодно работать с паролем в стринге
     private boolean passwordIsOk(String password) {
-//todo такой паттерн слишком сложный. Или нет?
-//        Pattern p = Pattern.compile("^(?=.*\\d)(?=.*[a-z])(?=.*[A-Z])(?!.*\\s).*$");
         Pattern p = Pattern.compile("^[a-zA-Z][a-zA-Z0-9-_\\.]{2,20}$");
         Matcher m = p.matcher(password);
         return m.matches();

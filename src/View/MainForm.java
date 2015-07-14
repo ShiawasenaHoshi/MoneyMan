@@ -3,6 +3,7 @@ package View;
 import Controller.Controller;
 import Controller.MoneyManTableModel;
 import Controller.SelectParams;
+import Controller.WindowController;
 
 import javax.naming.OperationNotSupportedException;
 import javax.swing.*;
@@ -72,11 +73,21 @@ public class MainForm extends JFrame implements Runnable {
     private int currentAccountIndex;
     private int currentCategoryIndex;
 
-    //fixme А ты не пробовал использовать Java стиль "javax.swing.plaf.metal.MetalLookAndFeel"? Он на всех ОС по идее должен отображаться одинаково.
     public MainForm(Controller controller) {
         super("Главная форма");
         this.controller = controller;
         thisFrame = this;
+        try {
+            UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        } catch (InstantiationException e) {
+            e.printStackTrace();
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        } catch (UnsupportedLookAndFeelException e) {
+            e.printStackTrace();
+        }
         init();
     }
 
@@ -168,9 +179,11 @@ public class MainForm extends JFrame implements Runnable {
         }
         refreshTable();
         if (tableModel.getRowCount() > 0) {
+            controller.setCurrentRecord(0);
             tRecords.setRowSelectionInterval(0, 0);
             refreshPanelRecordEdit((Integer) tableModel.getValueAt(tRecords.getSelectedRow(), MoneyManTableModel.ID_COLUMN));
         }
+
     }
 
     private void refreshAfterEditRecord() {
@@ -234,17 +247,17 @@ public class MainForm extends JFrame implements Runnable {
 
     //todo можно добавить множественное редактирование
     private void refreshPanelRecordEdit(int currentRecordID) {
-        controller.currentRecord.setCurrentRecord(currentRecordID);
-        lRecordID.setText(RECORD_NUMBER_TEXT + controller.currentRecord.getID());
-        ftfRecordDateTime.setValue(controller.currentRecord.getDateTime());
-        ftfRecordAmount.setValue(controller.currentRecord.getAmount());
-        //todo надо придумать как не обновлять каждый раз этот список
+        controller.setCurrentRecord(currentRecordID);
+        lRecordID.setText(RECORD_NUMBER_TEXT + controller.getCurrentRecordID());
+        ftfRecordDateTime.setValue(controller.getCurrentRecordDateTime());
+        ftfRecordAmount.setValue(controller.getCurrentRecordAmount());
+        //Этот список категорий обновляется из кэша
         cbRecordCategory.removeAllItems();
         for (String s : controller.getCategories()) {
             cbRecordCategory.addItem(s);
         }
-        cbRecordCategory.setSelectedItem(controller.currentRecord.getCategoryDescription());
-        taRecordDescription.setText(controller.currentRecord.getDescription());
+        cbRecordCategory.setSelectedItem(controller.getCurrentRecordCategoryDescription());
+        taRecordDescription.setText(controller.getCurrentRecordDescription());
     }
 
     //todo множественное удаление
@@ -277,11 +290,11 @@ public class MainForm extends JFrame implements Runnable {
                 return;
             }
             if (lRecordID.getText().equals(NEW_RECORD)) {
-                id = Controller.CurrentRecord.NO_ID;
+                id = Controller.RECORD_NO_ID;
             } else {
-                id = controller.currentRecord.getID();
+                id = controller.getCurrentRecordID();
             }
-            if (id != Controller.CurrentRecord.NO_ID && currentAccountIndex == -1) {
+            if (id != Controller.RECORD_NO_ID && currentAccountIndex == -1) {
                 messageBoxes.warningChooseAccount();
                 return;
             }
@@ -301,7 +314,7 @@ public class MainForm extends JFrame implements Runnable {
 
         private void removeRecord() {
             int row = tRecords.getSelectedRow();
-            controller.removeRecord(controller.currentRecord.getID());
+            controller.removeRecord(controller.getCurrentRecordID());
             refreshAfterEditRecord();
             if (row >= tRecords.getRowCount()) {
                 row = tRecords.getRowCount() - 1;
@@ -353,7 +366,7 @@ public class MainForm extends JFrame implements Runnable {
         public void valueChanged(ListSelectionEvent e) {
             int row = tRecords.getSelectedRow();
             if (row >= 0) {
-                controller.currentRecord.setCurrentRecord(tRecords.getSelectedRow());
+                controller.setCurrentRecord(tRecords.getSelectedRow());
                 refreshPanelRecordEdit((Integer) tableModel.getValueAt(tRecords.getSelectedRow(), MoneyManTableModel.ID_COLUMN));
             }
         }
@@ -555,7 +568,7 @@ public class MainForm extends JFrame implements Runnable {
                 showTextField();
             } else if (lCategories.getSelectedIndex() == -1) {
                 return;
-            } else if (lCategories.getSelectedValue().equalsIgnoreCase(Controller.NO_CATEGORY_DESCRIPTION)) {
+            } else if (lCategories.getSelectedValue().equalsIgnoreCase(WindowController.NO_CATEGORY_DESCRIPTION)) {
                 messageBoxes.errorEditNoCategory();
             } else if (e.getSource().equals(bEditCategory)) {
                 refreshTextField();
@@ -572,7 +585,7 @@ public class MainForm extends JFrame implements Runnable {
             if (currentCategoryIndex >= 0) {
                 lCategories.setSelectedIndex(currentCategoryIndex);
             }
-            refreshPanelRecordEdit(controller.currentRecord.getID());
+            refreshPanelRecordEdit(controller.getCurrentRecordID());
         }
 
         private void removeCategory(int index) {
@@ -630,7 +643,7 @@ public class MainForm extends JFrame implements Runnable {
                     }
                 } else {
                     try {
-                        if (tfCategoryDescription.getText().equalsIgnoreCase(Controller.NO_CATEGORY_DESCRIPTION)) {
+                        if (tfCategoryDescription.getText().equalsIgnoreCase(WindowController.NO_CATEGORY_DESCRIPTION)) {
                             messageBoxes.errorEditNoCategory();
                             return;
                         }
@@ -642,7 +655,7 @@ public class MainForm extends JFrame implements Runnable {
                         e1.printStackTrace();
                     }
                 }
-                refreshPanelRecordEdit(controller.currentRecord.getID());
+                refreshPanelRecordEdit(controller.getCurrentRecordID());
             }
         }
     }
