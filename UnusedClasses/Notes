@@ -1,8 +1,0 @@
-про создание масок для formattedTextField http://stackoverflow.com/questions/4252257/jformattedtextfield-with-maskformatter
-О том как редактировать отдельные ячейки http://stackoverflow.com/questions/5918727/updating-data-in-a-jtable
-туториал по табличкам http://docs.oracle.com/javase/tutorial/uiswing/components/table.html
-выделение нескольких http://stackoverflow.com/questions/14416188/jtable-how-to-get-selected-cells
-
-
-Усложненный паттерн для проверки пароля
-Pattern p = Pattern.compile("^(?=.*\\d)(?=.*[a-z])(?=.*[A-Z])(?!.*\\s).*$");
