@@ -1,8 +1,0 @@
-//    private AccountDialog accountDialog;
-
-//                if (accountDialog == null) {
-//                    fr = new JFrame();
-//                    accountDialog = new AccountDialog(thisFrame);
-//                }
-//                accountDialog.setVisible(true);
-//                return;
