@@ -89,8 +89,8 @@ public enum DBHelper {
         Statement stmt = connection.createStatement();
         String createSql = readResource(DBHelper.class, "/Model/SQLScripts/create.sql");
         stmt.executeUpdate(createSql);
-        String insertSql = readResource(DBHelper.class, "/Model/SQLScripts/insert.sql");
-        stmt.executeUpdate(insertSql);
+        //String insertSql = readResource(DBHelper.class, "/Model/SQLScripts/insert.sql");
+        //stmt.executeUpdate(insertSql);
         stmt.close();
     }
 
