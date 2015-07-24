@@ -1,0 +1,2 @@
+# MoneyMan
+Simple finance manager
